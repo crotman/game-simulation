@@ -1,0 +1,254 @@
+---
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(structtibble)
+library(shiny)
+
+source("R/create_enums.R", encoding = "UTF-8")
+source("R/simulator.R", encoding = "UTF-8")
+
+```
+
+
+
+```{r eruptions }
+
+#user inputs
+
+inputPanel(
+  numericInput(
+    inputId = "prob_diligent",
+    label = "Probability of Kludge when Diligent",
+    value = "0.2",
+    step = 0.01
+  ) ,
+  numericInput(
+    inputId = "prob_kludgy",
+    label = "Probability of Kludge when Kludgy",
+    value = "0.8",
+    step = 0.01
+  ) ,
+
+
+  numericInput(
+    inputId = "mean_time_diligent",
+    label = "Mean Time to Develop when Diligent",
+    value = "5",
+    step = "1"
+  ) ,
+
+  numericInput(
+    inputId = "mean_time_kludgy",
+    label = "Mean Time to Develop when Kludgy",
+    value = "3",
+    step = "1"
+  ) ,
+
+  numericInput(
+    inputId = "sd_time_develop",
+    label = "Stdev of Time to develop",
+    value = "2",
+    step = "1"
+  ) ,
+
+  
+  numericInput(
+    inputId = "mean_time_accurate",
+    label = "Mean Time to Meta-review when Accurate",
+    value = "2",
+    step = "1"
+  ) ,
+
+  numericInput(
+    inputId = "mean_time_inaccurate",
+    label = "Mean Time to Meta-review when Inaccurate",
+    value = "2",
+    step = "1"
+  ) ,
+  
+
+  numericInput(
+    inputId = "sd_time_meta_review",
+    label = "Stdev of Time to review",
+    value = "0.5",
+    step = "0.1"
+  ) ,
+  
+  
+  numericInput(
+    inputId = "mean_time_accurate",
+    label = "Mean Time to Meta-review when Accurate",
+    value = "2",
+    step = "1"
+  ) ,
+
+  numericInput(
+    inputId = "mean_time_inaccurate",
+    label = "Mean Time to Meta-review when Inaccurate",
+    value = "2",
+    step = "1"
+  ) ,
+  
+  
+  numericInput(
+    inputId = "sd_time_meta_review",
+    label = "Mean Time to Meta-review when Inaccurate",
+    value = "2",
+    step = "1"
+  ) ,
+  
+  
+  numericInput(
+    inputId = "prob_kludgy",
+    label = "Probability of Kludge when Kludgy",
+    value = "0.8"
+  ) ,
+  
+  selectInput(
+    inputId = "action_d1",
+    label = "Developer 1 Pure Strategy",
+    choices = c("Diligent/Accurate", "Diligent/Innaccurate", "Kludgy/Accurate", "Kludgy/Innaccurate" )
+  ) ,
+  
+  selectInput(
+    inputId = "action_d2",
+    label = "Developer 2 Pure Strategy",
+    choices = c("Diligent/Accurate", "Diligent/Innaccurate", "Kludgy/Accurate", "Kludgy/Innaccurate" )
+  ) ,
+  
+  selectInput(
+    inputId = "action_r",
+    label = "Reviewer Pure Strategy",
+    choices = c("Careful", "Negligent")
+  ) ,
+  
+  numericInput(
+    inputId = "prob_review",
+    label = "Probability of a pull request to be reviewed",
+    value = "0.2"
+  ) ,
+  
+  numericInput(
+    inputId = "prob_meta_review",
+    label = "Probability of a review to be meta-reviewed",
+    value = "0.2"
+  ) ,
+  
+  
+  actionButton(
+    inputId = "go",
+    label = "GO!"
+  )
+
+  
+)
+
+#initializing structures
+
+tasks <- create_backlog()
+pull_requests <- NULL
+cur_time <- 0
+total_time <- 1000
+next_task <- NULL
+
+devs_status <- tribble(
+  ~player,     ~status,
+  players$D1,  status$Idle,
+  players$D2,  status$Idle,
+  players$R,  status$Idle
+)
+
+
+game_results <- eventReactive(eventExpr = input$go , valueExpr = {
+
+  #initializing structures that depend on user input, therefore the reactive environment
+
+  pr_actions_info <- tribble(
+    ~action,          ~prob,               ~mean_time_to_develop,     ~sd_time_to_develop,
+    actions$Diligent, input$prob_diligent, input$mean_time_diligent,  input$sd_time,
+    actions$Kludgy,   input$prob_kludgy,   input$mean_time_kludgy,    input$sd_time
+  )
+
+  devs_actions <- set_devs_actions(
+      d1 = input$action_d1,
+      d2 = input$action_d2
+  )
+
+  while(cur_time < total_time){
+   
+    if(!is.null(next_task)){
+    }
+    
+    for(dev in devs){
+      
+      if (get_dev_status(devs_status, dev) == status$Idle){
+        
+        cur_action <- devs_actions %>% filter(player == dev) %>% pull(pull_request)
+
+        cur_pr_actions_info <- pr_actions_info %>% filter(action == cur_action)
+
+        review_status = 
+            sample(
+              x = c(review_statuses$NotSampled, review_statuses$Waiting),
+              size = 1,
+              prob = c(1 - input$prob_review, input$prob_review )
+            )
+        
+        new_pr <- create_pull_request(
+          developer = dev,
+          kludge = rbinom(prob = cur_pr_actions_info$prob, n = 1, size = 1),
+          time_to_develop = 
+            rnorm(
+              n = 1, 
+              mean = cur_pr_actions_info$mean_time_to_develop, 
+              sd = cur_pr_actions_info$sd_time_to_develop 
+            ),
+          review_status = review_status,
+          meta_review_status = case_when(
+              review_status == review_statuses$NotSampled ~ meta_review_statuses$NotSampled,
+              review_status == review_statuses$Waiting ~
+                sample(
+                  x = c(meta_review_statuses$NotSampled, meta_review_statuses$Waiting ),
+                  size = 1,
+                  prob = c(1 - input$prob_meta_review, input$prob_meta_review )
+                )
+            )
+        )
+        
+        pull_requests <- add_pull_request(pull_requests, new_pr)
+        
+        new_task <- create_task(
+          task_type = 
+        )
+        
+      }
+      
+    }
+  }
+
+})
+
+
+```
+
+
+
+
+```{r}
+
+
+renderText(
+  game_results()
+)
+
+
+
+```
+
+
