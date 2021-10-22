@@ -10,6 +10,10 @@ library(tidyverse)
 library(structtibble)
 library(shiny)
 library(truncnorm)
+library(shiny)
+library(reactable)
+library(patchwork)
+
 
 source("R/create_enums.R", encoding = "UTF-8")
 source("R/simulator.R", encoding = "UTF-8")
@@ -24,6 +28,12 @@ source("R/simulator.R", encoding = "UTF-8")
 
 inputPanel(
   
+  numericInput(
+    inputId = "total_time",
+    label = "Simulation time",
+    value = "100",
+    step = 1
+  ) ,
   numericInput(
     inputId = "prob_diligent",
     label = "Probability of Kludge when Diligent",
@@ -202,13 +212,13 @@ inputPanel(
   numericInput(
     inputId = "prob_review",
     label = "Probability of a pull request to be reviewed",
-    value = "1"
+    value = "0.3"
   ) ,
   
   numericInput(
     inputId = "prob_meta_review",
     label = "Probability of a review to be meta-reviewed",
-    value = "1"
+    value = "0.3"
   ) ,
   
   
@@ -220,31 +230,6 @@ inputPanel(
   
 )
 
-#initializing structures
-
-
-players_tasks <- list(
-  create_backlog(),
-  create_backlog(),
-  create_backlog()
-)
-
-
-
-
-names(players_tasks) <- players
-  
-pull_requests <- create_pull_requests()
-cur_time <- 0
-total_time <- 1000
-next_task <- NULL
-
-players_status <- tribble(
-  ~player,     ~status,       ~release,
-  players$D1,  statuses$Idle, 0,
-  players$D2,  statuses$Idle, 0,
-  players$R,  statuses$Idle,  0
-)
 
 
 game_results <- eventReactive(eventExpr = input$go , valueExpr = {
@@ -254,6 +239,31 @@ game_results <- eventReactive(eventExpr = input$go , valueExpr = {
   
   #initializing structures that depend on user input, therefore the reactive environment
 
+  #initializing structures
+  
+  players_tasks <- list(
+    create_backlog(),
+    create_backlog(),
+    create_backlog()
+  )
+  
+  names(players_tasks) <- players
+    
+  pull_requests <- create_pull_requests()
+  cur_time <- 0
+  
+  next_task <- NULL
+  
+  players_status <- tribble(
+    ~player,     ~status,       ~release,
+    players$D1,  statuses$Idle, 0,
+    players$D2,  statuses$Idle, 0,
+    players$R,  statuses$Idle,  0
+  )
+    
+  
+  total_time <- input$total_time
+  
   pr_actions_info <- tribble(
     ~action,          ~prob,               ~mean_time_to_develop,     ~sd_time_to_develop,
     actions$Diligent, input$prob_diligent, input$mean_time_diligent,  input$sd_time_develop,
@@ -464,6 +474,9 @@ game_results <- eventReactive(eventExpr = input$go , valueExpr = {
     cur_time <- cur_time + 1
     
   }
+  
+  
+  pull_requests
 
 })
   
@@ -474,15 +487,111 @@ game_results <- eventReactive(eventExpr = input$go , valueExpr = {
 
 
 
-```{r}
+```{r, echo=FALSE}
+
+renderPlot({
+  
+  dados <- game_results() %>% 
+    mutate(
+      kludge = if_else(kludge == 1, "Kludge", "Not Kludge")
+    )
 
 
-renderText(
-  game_results()
-)
+  kludge_plot <- ggplot(dados) +
+    geom_bar(
+      aes(
+        x = kludge,
+        fill = kludge
+      ),
+      show.legend = FALSE
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "top",
+      axis.text.x = element_text(angle = 90)
+    )
 
+  review_plot <- ggplot(dados) +
+    geom_bar(
+      aes(
+        x = review_status,
+        fill = review_status
+      ),
+      show.legend = FALSE
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "top",
+      axis.text.x = element_text(angle = 90)
+    )
+    
+  
+
+  meta_review_plot <- ggplot(dados) +
+    geom_bar(
+      aes(
+        x = meta_review_status,
+        fill = meta_review_status
+      ),
+      show.legend = FALSE
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "top",
+      axis.text.x = element_text(angle = 90)
+    )
+  
+  pull_request_plot <- ggplot(dados) +
+    geom_bar(
+      aes(
+        x = developer,
+        fill = developer
+      ),
+      show.legend = FALSE
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "top",
+      axis.text.x = element_text(angle = 90)
+    ) 
+  
+      
+  kludge_plot | review_plot | meta_review_plot | pull_request_plot
+  
+})
 
 
 ```
+
+
+
+
+```{r, echo=FALSE}
+
+
+renderReactable(
+  reactable(game_results())
+)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
