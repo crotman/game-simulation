@@ -594,10 +594,68 @@ renderPlot({
       axis.text.x = element_text(angle = 90)
     ) 
   
-      
-  kludge_plot | review_plot | meta_review_plot | pull_request_plot
+  time_dist <- ggplot(dados) +
+    geom_density(
+      aes(
+        x = time_to_develop
+      ),
+      size = 1
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "top"
+    ) 
+    
+  time_dist_d <- ggplot(dados) +
+    geom_density(
+      aes(
+        x = time_to_develop,
+        color = developer
+      ),
+      size = 1
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "top"
+    ) 
+
   
-})
+  cum_start_devs <- 
+    dados %>% 
+    arrange(start_time) %>% 
+    group_by(
+      developer
+    ) %>% 
+    mutate(
+      unit = 1,
+      cum_started_prs = cumsum(unit)
+    ) %>% 
+    ggplot() +
+    geom_line(
+      aes(
+        x = start_time,
+        y = cum_started_prs,
+        color = developer
+      ),
+      size = 1
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "top"
+    ) 
+
+
+  (kludge_plot | review_plot | meta_review_plot | pull_request_plot) / 
+    (time_dist | time_dist_d | cum_start_devs )
+  
+  
+  
+  
+},
+
+height = 600
+  
+)
 
 
 ```
