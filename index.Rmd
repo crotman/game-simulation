@@ -59,7 +59,7 @@ inputPanel(
   ) ,
   
   numericInput(
-    inputId = "prob_negative_when_correct_not_kludgy_accurate",
+    inputId = "prob_negative_when_incorrect_not_kludgy_accurate",
     label = "Probability of Negative when Incorrect Review of Not Kludgy PR and Accurate",
     value = "0.8",
     step = 0.01
@@ -88,7 +88,7 @@ inputPanel(
   ) ,
   
   numericInput(
-    inputId = "prob_negative_when_correct_not_kludgy_inaccurate",
+    inputId = "prob_negative_when_incorrect_not_kludgy_inaccurate",
     label = "Probability of Negative when Incorrect Review of Not Kludgy PR and Inaccurate",
     value = "0.9",
     step = 0.01
@@ -267,7 +267,6 @@ game_results <- eventReactive(eventExpr = input$go , valueExpr = {
   
   rev_action <- input$action_r
 
-  
   while(cur_time < total_time){
     
     for(player in players){
@@ -290,7 +289,6 @@ game_results <- eventReactive(eventExpr = input$go , valueExpr = {
           
           #review
           if(next_task$type == tasks_types$Review){
-            browser()
             prob_review_kludge <- case_when(
               related_pr$kludge & rev_action == actions$Careful ~ input$prob_kludgy_review_when_kludge_careful,
               !related_pr$kludge & rev_action == actions$Careful ~ input$prob_kludgy_review_when_not_kludge_careful,
@@ -342,14 +340,15 @@ game_results <- eventReactive(eventExpr = input$go , valueExpr = {
           #meta_review
           
           if(next_task$type == tasks_types$MetaReview){
-            browser()
+            cur_player <- player
             kludgy <- related_pr$kludge
-            action <- devs_actions %>% filter(player == dev) %>% pull(meta_review)
+            action <- devs_actions %>% filter(player == cur_player) %>% pull(meta_review)
             correct <- (
               related_pr$review_status == review_statuses$Kludge & related_pr$kludge | 
                 related_pr$review_status == review_statuses$NotKludge & !related_pr$kludge
             )
             
+
             prob_meta_review_negative <- case_when(
               kludgy & action == actions$Accurate & correct ~ input$prob_negative_when_correct_kludgy_accurate,
               kludgy & action == actions$Accurate & !correct ~ input$prob_negative_when_incorrect_kludgy_accurate,
@@ -454,60 +453,22 @@ game_results <- eventReactive(eventExpr = input$go , valueExpr = {
             player_tasks = player_tasks
           )
           
-          browser()
-          
+
         }
         
         
       }
-      
-      
-      
+
     }
 
     cur_time <- cur_time + 1
     
   }
-   
-    
+
 })
   
   
   
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-#         
-#         
-#         browser()
-# 
-#       }
-# 
-#     }
-#     
-#       
-#     }
-#     
-#     
-#   }
-# 
-# })
-# 
-
 ```
 
 
