@@ -9,7 +9,9 @@ devs <- players[names(players) %in% c("D1", "D2")]
 
 tasks_types <- list(
   Review = "Review",
-  MetaReview = "MetaReview"
+  MetaReview = "MetaReview",
+  KludgePenalty = "KludgePenalty"
+
 )
 
 

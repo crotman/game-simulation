@@ -221,7 +221,15 @@ inputPanel(
     value = "0.3"
   ) ,
   
+
+  numericInput(
+    inputId = "time_penalty",
+    label = "Time Penalty for caught Kludges",
+    value = "0",
+    step = 0.1
+  ) ,
   
+    
   actionButton(
     inputId = "go",
     label = "GO!"
@@ -296,7 +304,19 @@ game_results <- eventReactive(eventExpr = input$go , valueExpr = {
           next_task <- popped$x
           players_tasks <- set_player_tasks(players_tasks, player, popped$tibble)
           related_pr <- pull_requests %>% filter(pull_request_id == next_task$pull_request_id ) 
+
           
+          #kludge penalty
+          if(next_task$type == tasks_types$KludgePenalty){
+            players_status <- set_player_status(players_status, player, statuses$Busy  )
+            players_status <- set_player_release(
+              players_status = players_status,
+              cur_player = player,
+              new_release = cur_time + input$time_penalty
+            )
+
+          }
+
           #review
           if(next_task$type == tasks_types$Review){
             prob_review_kludge <- case_when(
@@ -311,6 +331,25 @@ game_results <- eventReactive(eventExpr = input$go , valueExpr = {
               prob = c(prob_review_kludge, 1 - prob_review_kludge),
               size = 1
             )
+            
+            if(review_result == review_statuses$Kludge){
+
+              task_meta <- create_task(
+                type = tasks_types$KludgePenalty,
+                earliest_time = cur_time,
+                player = related_pr$developer,
+                pull_request_id = related_pr$pull_request_id
+              )
+              
+              player_tasks <- add_task(players_tasks[[related_pr$developer]], new_task = task_meta)
+              players_tasks <- set_player_tasks(
+                players_tasks = players_tasks,
+                player = related_pr$developer,
+                player_tasks = player_tasks
+              )
+
+            }
+            
             
             pull_requests <- set_pr_review_status(
               pull_requests,
