@@ -23,7 +23,6 @@ source("R/simulator.R", encoding = "UTF-8")
 
 
 ```{r, echo=FALSE}
-
 #user inputs
 
 inputPanel(
@@ -237,18 +236,15 @@ inputPanel(
 
   
 )
+```
 
 
-
+```{r, echo=TRUE}
 game_results <- eventReactive(eventExpr = input$go , valueExpr = {
 
-  
 
-  
   #initializing structures that depend on user input, therefore the reactive environment
 
-  #initializing structures
-  
   players_tasks <- list(
     create_backlog(),
     create_backlog(),
