@@ -230,12 +230,18 @@ inputPanel(
     step = 0.1
   ) ,
   
+  numericInput(
+    inputId = "entropy_factor",
+    label = "Time Penalty for caught Kludges",
+    value = "1.02",
+    step = 0.01
+  ) ,
     
   actionButton(
     inputId = "go",
     label = "GO!"
   )
-
+  
   
 )
 ```

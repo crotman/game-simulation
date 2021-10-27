@@ -15,6 +15,8 @@ simulate_game <- function(
   pull_requests <- create_pull_requests()
   cur_time <- 0
 
+  cum_kludges <- 0
+
   next_task <- NULL
 
   players_status <- tribble(
@@ -80,6 +82,8 @@ simulate_game <- function(
               related_pr$kludge & rev_action == actions$Negligent ~ values$prob_kludgy_review_when_kludge_negligent,
               !related_pr$kludge & rev_action == actions$Negligent ~ values$prob_kludgy_review_when_not_kludge_negligent
             )
+
+            cum_kludges <- cum_kludges + related_pr$kludge
 
             review_result = sample(
               x = c(review_statuses$Kludge, review_statuses$NotKludge ),
@@ -209,17 +213,20 @@ simulate_game <- function(
           )
 
 
+
         time_to_develop <- rtruncnorm(
           n = 1,
           mean = cur_pr_actions_info$mean_time_to_develop,
           sd = cur_pr_actions_info$sd_time_to_develop,
           a = 0,
           b = Inf
-        )
+        ) * values$entropy_factor ^ cum_kludges
+
+        draw_kludge <- rbinom(prob = cur_pr_actions_info$prob, n = 1, size = 1)
 
         new_pr <- create_pull_request(
           developer = player,
-          kludge = rbinom(prob = cur_pr_actions_info$prob, n = 1, size = 1),
+          kludge = draw_kludge,
           time_to_develop = time_to_develop,
           start_time = cur_time,
           review_status = review_status,
@@ -233,6 +240,8 @@ simulate_game <- function(
               )
           )
         )
+
+
 
         pull_requests <- add_pull_request(pull_requests, new_pr)
 
