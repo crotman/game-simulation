@@ -33,7 +33,7 @@ simulate_game <- function(
     )
 
 
-  total_time <- values$total_time
+  total_steps <- values$total_steps
 
   pr_actions_info <- tribble(
     ~action,          ~prob,               ~mean_time_to_develop,     ~sd_time_to_develop,
@@ -48,7 +48,7 @@ simulate_game <- function(
 
   rev_action <- values$action_r
 
-  while(cur_time < total_time){
+  while(cur_time < total_steps){
 
     for(player in players){
 

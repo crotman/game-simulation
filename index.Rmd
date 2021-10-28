@@ -21,7 +21,7 @@ library(truncnorm)
 library(shiny)
 library(reactable)
 library(patchwork)
-
+library(rhandsontable)
 
 source("R/create_enums.R", encoding = "UTF-8")
 source("R/simulator.R", encoding = "UTF-8")
@@ -42,8 +42,8 @@ source("R/game_simulation.R", encoding = "UTF-8")
 inputPanel(
   
   numericInput(
-    inputId = "total_time",
-    label = "Simulation time",
+    inputId = "total_steps",
+    label = "Simulation steps",
     value = "500",
     step = 1
   ) ,
@@ -270,8 +270,11 @@ game_results <- eventReactive(eventExpr = input$go , valueExpr = {
     .f = ~{info[[.x]] <- input[[.x]] }
   )
   
+  browser()
+  
   names(values) <- names(input)
   
+
   tictoc::tic("simulate")
   result <- simulate_game(values)
   tictoc::toc()
@@ -435,253 +438,52 @@ renderReactable(
 ```
 
 
-
 # Many Simulations
 
 
 ```{r, echo=FALSE}
 
 
+possible_params <- read_rds("data/params.rds")
+
+output$hot <- renderRHandsontable({
+  
+    DF = tibble(param = "total_steps", value = "500" )
+
+    rhandsontable(DF, width = 550) %>%
+        hot_col(col = "param", type = "dropdown", source = possible_params )
+    
+    
+    
+  })
+
+
 inputPanel(
   
-  numericInput(
-    inputId = "total_time_multi",
-    label = "Simulation time",
-    value = "500",
-    step = 1
-  ) ,
-  selectInput(
-    inputId = "prob_diligent_multi",
-    label = "Probability of Kludge when Diligent",
-    selected = "0.2",
-    choices = seq(0.1, 0.9, 0.1),
-    multiple = TRUE
-  ) ,
-  selectInput(
-    inputId = "prob_kludgy_multi",
-    label = "Probability of Kludge when Kludgy",
-    selected = "0.8",
-    choices = seq(0.1, 0.9, 0.1),
-    multiple = TRUE
-  ) ,
-
-  selectInput(
-    inputId = "prob_negative_when_correct_kludgy_accurate_multi",
-    label = "Probability of Negative when Correct Review of Kludgy PR and Accurate",
-    selected = "0.2",
-    choices = seq(0.1, 0.9, 0.1),
-    multiple = TRUE
-  ) ,
-  
-  selectInput(
-    inputId = "prob_negative_when_correct_not_kludgy_accurate_multi",
-    label = "Probability of Negative when Correct Review of Not Kludgy PR and Accurate",
-    selected = "0.2",
-    choices = seq(0.1, 0.9, 0.1),
-    multiple = TRUE
-  ) ,
-
-  selectInput(
-    inputId = "prob_negative_when_incorrect_kludgy_accurate_multi",
-    label = "Probability of Negative when Incorrect Review of Kludgy PR and Accurate",
-    selected = "0.8",
-    choices = seq(0.1, 0.9, 0.1),
-    multiple = TRUE
-  ) ,
-  
-  selectInput(
-    inputId = "prob_negative_when_incorrect_not_kludgy_accurate_multi",
-    label = "Probability of Negative when Incorrect Review of Not Kludgy PR and Accurate",
-    selected = "0.8",
-    choices = seq(0.1, 0.9, 0.1),
-    multiple = TRUE
-  ) ,
-
-  
-  selectInput(
-    inputId = "prob_negative_when_correct_kludgy_inaccurate_multi",
-    label = "Probability of Negative when Correct Review of Kludgy PR and Inaccurate",
-    selected =  "0.4",
-    choices = seq(0.1, 0.9, 0.1),
-    multiple = TRUE
-  ) ,
-  
-  selectInput(
-    inputId = "prob_negative_when_correct_not_kludgy_inaccurate_multi",
-    label = "Probability of Negative when Correct Review of Not Kludgy PR and Inaccurate",
-    selected = "0.2",
-    choices = seq(0.1, 0.9, 0.1),
-    multiple = TRUE
-  ) ,
-
-  selectInput(
-    inputId = "prob_negative_when_incorrect_kludgy_inaccurate_multi",
-    label = "Probability of Negative when Incorrect Review of Kludgy PR and Inaccurate",
-    selected = "0.8",
-    choices = seq(0.1, 0.9, 0.1),
-    multiple = TRUE
-  ) ,
-  
-  selectInput(
-    inputId = "prob_negative_when_incorrect_not_kludgy_inaccurate_multi",
-    label = "Probability of Negative when Incorrect Review of Not Kludgy PR and Inaccurate",
-    selected = "0.9",
-    choices = seq(0.1, 0.9, 0.1),
-    multiple = TRUE
-  ) ,
-  
-  numericInput(
-    inputId = "mean_time_diligent_multi",
-    label = "Mean Time to Develop when Diligent",
-    value = "5",
-    step = "1"
-  ) ,
-
-  numericInput(
-    inputId = "mean_time_kludgy_multi",
-    label = "Mean Time to Develop when Kludgy",
-    value = "3",
-    step = "1"
-  ) ,
-
-  numericInput(
-    inputId = "sd_time_develop_multi",
-    label = "Stdev of Time to develop",
-    value = "2",
-    step = "1"
-  ) ,
-
-  
-  numericInput(
-    inputId = "mean_time_accurate_multi",
-    label = "Mean Time to Meta-review when Accurate",
-    value = "2",
-    step = "1"
-  ) ,
-
-  numericInput(
-    inputId = "mean_time_inaccurate_multi",
-    label = "Mean Time to Meta-review when Inaccurate",
-    value = "2",
-    step = "1"
-  ) ,
-  
-
-  numericInput(
-    inputId = "sd_time_meta_review_multi",
-    label = "Stdev of Time to review",
-    value = "0.5",
-    step = "0.1"
-  ) ,
-  
-  
-  numericInput(
-    inputId = "mean_time_review_multi",
-    label = "Mean Time to Review",
-    value = "2",
-    step = "1"
-  ) ,
-
-  numericInput(
-    inputId = "sd_time_review_multi",
-    label = "SD time to review",
-    value = "0.1",
-    step = "1"
-  ) ,
-
-  
-  selectInput(
-    inputId = "prob_kludgy_review_when_kludge_careful_multi",
-    label = "Probability of Kludge Review when Kludge and Careful",
-    selected = "0.8",
-    choices = seq(0.1, 0.9, 0.1),
-    multiple = TRUE
-  ) ,
-
-  selectInput(
-    inputId = "prob_kludgy_review_when_not_kludge_careful_multi",
-    label = "Probability of Kludge Review when No Kludge and Careful",
-    selected = "0.2",
-    choices = seq(0.1, 0.9, 0.1),
-    multiple = TRUE
-  ) ,
-    
-  selectInput(
-    inputId = "prob_kludgy_review_when_kludge_negligent_multi",
-    label = "Probability of Kludge Review when Kludge and Negligent",
-    selected = "0.6",
-    choices = seq(0.1, 0.9, 0.1),
-    multiple = TRUE
-  ) ,
-
-  selectInput(
-    inputId = "prob_kludgy_review_when_not_kludge_negligent_multi",
-    label = "Probability of Kludge Review when No Kludge and Negligent",
-    selected =  "0.2",
-    choices = seq(0.1, 0.9, 0.1),
-    multiple = TRUE
-  ) ,
-  
-
-  selectInput(
-    inputId = "action_d1_multi",
-    label = "Developer 1 Pure Strategy",
-    choices = c("Diligent/Accurate", "Diligent/Innaccurate", "Kludgy/Accurate", "Kludgy/Innaccurate" )
-  ) ,
-  
-  selectInput(
-    inputId = "action_d2_multi",
-    label = "Developer 2 Pure Strategy",
-    choices = c("Diligent/Accurate", "Diligent/Innaccurate", "Kludgy/Accurate", "Kludgy/Innaccurate" )
-  ) ,
-  
-  selectInput(
-    inputId = "action_r_multi",
-    label = "Reviewer Pure Strategy",  
-    choices = c("Careful", "Negligent")
-  ) ,
-  
-  selectInput(
-    inputId = "prob_review_multi",
-    label = "Probability of a pull request to be reviewed",
-    selected =  "0.3",
-    choices = seq(0.1, 0.9, 0.1),
-    multiple = TRUE
-    
-  ) ,
-  
-  selectInput(
-    inputId = "prob_meta_review_multi",
-    label = "Probability of a review to be meta-reviewed",
-    selected =  "0.3",
-    choices = seq(0.1, 0.9, 0.1),
-    multiple = TRUE
-    
-  ) ,
-  
-
-  numericInput(
-    inputId = "time_penalty_multi",
-    label = "Time Penalty for caught Kludges",
-    value = "0",
-    step = 0.1
-    
-  ) ,
-  
-  numericInput(
-    inputId = "entropy_factor_multi",
-    label = "Time Penalty for caught Kludges",
-    value = "1.02",
-    step = 0.01
-  ) ,
-    
-  actionButton(
-    inputId = "go",
-    label = "GO!"
+  verticalLayout(
+    rHandsontableOutput("hot", width = 600, height = 600)  ,
+    actionButton(inputId = "gotable",  label = "Go!")
   )
   
-  
 )
+
+
+
+renderReactable({
+  
+    input$gotable
+    hot = isolate(input$hot)
+    if (!is.null(hot)) {
+      
+      reactable(hot_to_r(input$hot))
+      
+    }  
+  
+})
+
+
+
+
 
 
 ```
