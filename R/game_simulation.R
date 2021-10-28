@@ -24,7 +24,13 @@ simulate_game <- function(
     players$D1,  statuses$Idle, 0,
     players$D2,  statuses$Idle, 0,
     players$R,  statuses$Idle,  0
-  )
+  ) %>%
+    mutate(
+      across(
+        .cols = player,
+        .fns = as.factor
+      )
+    )
 
 
   total_time <- values$total_time
@@ -46,8 +52,11 @@ simulate_game <- function(
 
     for(player in players){
 
-      if(get_player_status(players_status, player) == statuses$Busy & get_player_release(players_status, player) < cur_time){
+      player_status <- get_player_status(players_status, player)
+
+      if(player_status == statuses$Busy & get_player_release(players_status, player) < cur_time){
         players_status <- set_player_status(players_status, player, statuses$Idle)
+        player_status <- statuses$Idle
       }
 
       player_tasks <- players_tasks[[player]]
@@ -55,7 +64,7 @@ simulate_game <- function(
       #if there's an ready task and player is not busy
       if(nrow(player_tasks) > 0){
 
-        if(cur_time > player_tasks %>% slice(1) %>% pull(earliest_time) & get_player_status(players_status, player) == statuses$Idle ){
+        if(cur_time > player_tasks$earliest_time[1] & player_status == statuses$Idle ){
 
           popped <- pop_tibble(player_tasks)
           next_task <- popped$x
@@ -66,6 +75,7 @@ simulate_game <- function(
           #kludge penalty
           if(next_task$type == tasks_types$KludgePenalty){
             players_status <- set_player_status(players_status, player, statuses$Busy  )
+            player_status <- statuses$Busy
             players_status <- set_player_release(
               players_status = players_status,
               cur_player = player,
@@ -119,6 +129,7 @@ simulate_game <- function(
             time_to_review <- rtruncnorm(n = 1, mean = values$mean_time_review, sd = values$sd_time_review, a = 0, b = Inf)
 
             players_status <- set_player_status(players_status, player, statuses$Busy  )
+            player_status <- statuses$Busy
             players_status <- set_player_release(
               players_status = players_status,
               cur_player = player,
@@ -186,6 +197,7 @@ simulate_game <- function(
             time_to_meta_review <- rtruncnorm(n = 1, mean = mean_time_meta_review, sd = values$sd_time_meta_review, a = 0, b = Inf)
 
             players_status <- set_player_status(players_status, player, statuses$Busy  )
+            player_status <- statuses$Busy
             players_status <- set_player_release(
               players_status = players_status,
               cur_player = player,
@@ -196,12 +208,12 @@ simulate_game <- function(
       }
 
       #develop
-      if(player %in% c(players$D1, players$D2) & get_player_status(players_status, player) == statuses$Idle ){
+      if(player %in% c(players$D1, players$D2) & player_status == statuses$Idle ){
 
 
 
         cur_player <- player #a kludge!
-        cur_action <- devs_actions %>% filter(player == cur_player) %>% pull(pull_request)
+        cur_action <- devs_actions$pull_request[match(cur_player, devs_actions$player)]
         cur_pr_actions_info <- pr_actions_info %>% filter(action == cur_action)
 
 
@@ -246,6 +258,7 @@ simulate_game <- function(
         pull_requests <- add_pull_request(pull_requests, new_pr)
 
         players_status <- set_player_status(players_status, player, new_status = statuses$Busy)
+        player_status <- statuses$Busy
         players_status <- set_player_release(players_status, player, new_release = cur_time + time_to_develop)
 
 

@@ -196,14 +196,14 @@ get_player_status <-  function(
   players_status,
   cur_player
 ){
-  players_status %>% filter(player == cur_player) %>% pull(status)
+  players_status$status[match(cur_player, players_status$player)]
 }
 
 get_player_release <-  function(
   players_status,
   cur_player
 ){
-  players_status %>% filter(player == cur_player) %>% pull(release)
+  players_status$release[match(cur_player, players_status$player)]
 }
 
 
@@ -212,10 +212,14 @@ set_player_status <-  function(
   cur_player,
   new_status
 ){
-  players_status %>%
-    mutate(
-      status = if_else(player == cur_player, new_status, status  )
-    )
+  # players_status %>%
+  #   mutate(
+  #     status = if_else(player == cur_player, new_status, status  )
+  #   )
+
+  players_status$status[match(cur_player, players_status$player)] = new_status
+
+  players_status
 }
 
 set_player_release <-  function(
@@ -223,10 +227,9 @@ set_player_release <-  function(
   cur_player,
   new_release
 ){
-  players_status %>%
-    mutate(
-      release = if_else(player == cur_player, new_release, release  )
-    )
+  players_status$release[match(cur_player, players_status$player)] = new_release
+
+  players_status
 }
 
 
