@@ -46,4 +46,20 @@ meta_review_statuses <- list(
 )
 
 
+stages <- tribble(
+  ~id, ~name, ~phase,
+  1,  "Development", "Start",
+  2,  "Development", "End",
+  3,  "Review", "Start",
+  4,  "Review", "End",
+  5,  "MetaReview", "Start",
+  6,  "MetaReview", "End",
+  7,  "Merge", "Start",
+  8,  "Merge", "End",
+)
+
+
+
+
+
 
