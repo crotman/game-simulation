@@ -23,7 +23,13 @@ simulate_game_simmer <- function(
   }
 
   branch_metareview <- function(){
-    get_attribute(env, keys = "to_be_metareviewed")
+    to_be <- get_attribute(env, keys = "to_be_metareviewed")
+    if(to_be == 1){
+      saida <- 1
+    }else{
+      saida <-0
+    }
+    saida
   }
 
   set_attribute_and_global <- function(.trj, keys, values, mod = NULL, init = 0){
@@ -105,9 +111,11 @@ simulate_game_simmer <- function(
   }
 
   set_to_be_metareviewed <- function(){
-    current_dev <- get_attribute(env, 'developer') %>% str_remove("developer_") %>% as.integer()
-    action <- params$devs[["strategy_dev"]][current_dev]
-    rbinom(n = 1, size = 1, prob = params$prob_meta_review)
+    if(get_attribute(env, 'reviewed') > 0 ){
+      rbinom(n = 1, size = 1, prob = params$prob_meta_review)
+    }else{
+      0
+    }
   }
 
 
@@ -134,8 +142,8 @@ simulate_game_simmer <- function(
   set_metareview <- function(){
     current_dev <- get_attribute(env, 'metareviewer') %>% str_remove("developer_") %>% as.integer()
     action <- params$devs[["strategy_meta"]][current_dev]
-    kludge <- get_attribute(env, 'kludge')
-    review_kludge <- get_attribute(env, 'kludge')
+    kludge <- get_attribute(env, 'last_kludge')
+    review_kludge <- get_attribute(env, 'last_review_kludge')
     correct_review <- kludge == review_kludge
     prob <- case_when(
       kludge == 0 & action == actions$Accurate & !correct_review ~ params$prob_negative_when_incorrect_not_kludgy_accurate,
@@ -178,6 +186,18 @@ simulate_game_simmer <- function(
 
   }
 
+
+  get_stage_id <- function(cur_stage, cur_phase){
+
+    stages %>% filter(
+      name == cur_stage,
+      phase == cur_phase
+    ) %>%
+      pull(id)
+
+  }
+
+
 #### simulation ####
 
 
@@ -196,25 +216,39 @@ simulate_game_simmer <- function(
 
   metareview_traj <- trajectory("metareview_traj") %>%
     simmer::select(get_other_devs, policy = "random" ) %>%
+    timeout(0.0001) %>%
+    set_attribute_and_global(keys = "stage", values = get_stage_id(cur_stage = "MetaReview", cur_phase = "Start")) %>%
     set_attribute_and_global(keys = "metareviewer", values = get_developer_id ) %>%
     seize_selected(1) %>%
     timeout(set_time_to_metareview) %>%
     set_attribute_and_global(keys = "metareview_good", values = set_metareview) %>%
+    set_attribute_and_global(keys = "stage", values = get_stage_id(cur_stage = "MetaReview", cur_phase = "End")) %>%
     release_selected(1)
 
 #### review traj ####
   review_traj <- trajectory("review_traj") %>%
     simmer::select(str_glue("reviewer_{1:n_reviewers}"), policy = "round-robin" ) %>%
     set_attribute_and_global(keys = "reviewer", values = get_reviewer_id ) %>%
+    timeout(0.0001) %>%
+    set_attribute_and_global(keys = "stage", values = get_stage_id(cur_stage = "Review", cur_phase = "Start")) %>%
     seize_selected(1) %>%
     timeout(set_time_to_review) %>%
     release_selected(1) %>%
     set_attribute_and_global(keys = "review_kludge", values = set_review) %>%
-    set_attribute_and_global(keys = "to_be_metareviewed", values = set_to_be_metareviewed) %>%
-    branch(
-      option = branch_metareview,
-      metareview_traj,
-      continue = TRUE
+    set_attribute_and_global(
+      keys = "last_review_kludge",
+      values = function(){get_attribute(env, keys = "review_kludge")}
+    ) %>%
+    set_attribute_and_global(
+      keys = "last_kludge",
+      values = function(){get_attribute(env, keys = "kludge")}
+    ) %>%
+    set_attribute_and_global(keys = "stage", values = get_stage_id(cur_stage = "Review", cur_phase = "End")) %>%
+    set_attribute_and_global(
+      keys = "reviewed",
+      mod = "+",
+      init = 0,
+      values = 1
     )
 
 
@@ -234,14 +268,20 @@ simulate_game_simmer <- function(
       init = -1,
       values = 1
     ) %>%
+    set_attribute_and_global(
+      keys = "reviewed",
+      mod = "+",
+      init = 0,
+      values = 0
+    ) %>%
     simmer::select(get_my_dev_or_any, policy = "random" ) %>%
     set_attribute_and_global(keys = "developer", values = get_developer_id ) %>%
+    set_attribute_and_global(keys = "stage", values = get_stage_id(cur_stage = "Development", cur_phase = "Start")) %>%
     seize_selected(1) %>%
     timeout(task = set_time_to_develop ) %>%
     set_attribute_and_global(keys = "kludge", values = set_kludge ) %>%
     set_attribute_and_global(keys = "review_kludge", values = -1 ) %>%
-    set_attribute_and_global(keys = "metareview_good", values = -1 ) %>%
-    set_attribute_and_global(keys = "to_be_metareviewed", values = -1 ) %>%
+    set_attribute_and_global(keys = "stage", values = get_stage_id(cur_stage = "Development", cur_phase = "End")) %>%
     release_selected(1) %>%
     set_attribute_and_global(keys = "to_be_reviewed", values = set_to_be_reviewed) %>%
     branch(
@@ -254,8 +294,16 @@ simulate_game_simmer <- function(
       amount = 100,
       check = set_rollback
     ) %>%
+    set_attribute_and_global(keys = "stage", values = get_stage_id(cur_stage = "Merge", cur_phase = "Start")) %>%
     timeout(0.0001) %>%
+    set_attribute_and_global(keys = "stage", values = get_stage_id(cur_stage = "Merge", cur_phase = "End")) %>%
     set_attribute_and_global(keys = "merged", values = 1) %>%
+    set_attribute_and_global(keys = "to_be_metareviewed", values = set_to_be_metareviewed) %>%
+    branch(
+      option = branch_metareview,
+      metareview_traj,
+      continue = TRUE
+    ) %>%
     set_global(
       keys = "entropy",
       mod = "+",
@@ -266,7 +314,6 @@ simulate_game_simmer <- function(
 
   env <- simmer("simulacao")
 
-  tictoc::tic("simula")
   env_run <- env %>%
     reduce(
     .init = .,
@@ -285,7 +332,6 @@ simulate_game_simmer <- function(
     ) %>%
     run(until = params$total_steps)
 
-  tictoc::toc()
 
   monitored <- get_mon_attributes(env_run)
 
@@ -315,7 +361,12 @@ simulate_game_simmer <- function(
       everything(),
       .direction = "down"
     ) %>%
-    ungroup()
+    ungroup() %>%
+    left_join(
+      stages %>% rename(cur_stage = name),
+      by = c("stage" = "id")
+    )
+
 
 
   list(

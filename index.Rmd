@@ -17,11 +17,14 @@ library(shiny)
 library(reactable)
 library(patchwork)
 library(rhandsontable)
+library(scales)
 
 source("R/create_enums.R", encoding = "UTF-8")
 source("R/simulator.R", encoding = "UTF-8")
 source("R/game_simulation.R", encoding = "UTF-8")
 source("R/simmer.R", encoding = "UTF-8")
+
+future::plan(future::multiprocess)
 
 
 ```
@@ -93,7 +96,7 @@ inputPanel(
       numericInput(
         inputId = "total_steps",
         label = "$$Steps$$" %>% withMathJax(),
-        value = "2000",
+        value = "5000",
         step = 1
       ), 
       
@@ -107,19 +110,19 @@ inputPanel(
       numericInput(
         inputId = "prob_review",
         label = "$$P(Review)$$" %>% withMathJax(),
-        value = "0.3"
+        value = "0.33"
       ) ,
       
       numericInput(
         inputId = "prob_meta_review",
         label = "$$P(MetaReview|Review)$$"  %>% withMathJax(),
-        value = "0.3"
+        value = "0.5"
       ) ,
       
       numericInput(
         inputId = "lambda",
         label = "$$\\lambda$$"  %>% withMathJax(),
-        value = "0.2"
+        value = "0.1"
       ) 
       
 
@@ -134,13 +137,13 @@ inputPanel(
       numericInput(
         inputId = "prob_diligent",
         label = "$$P(K)|D$$" %>%  withMathJax(),
-        value = "0.2",
+        value = "0.15",
         step = 0.01
       ) ,
       numericInput(
         inputId = "prob_kludgy",
         label = "$$P(K)|K$$" %>%  withMathJax(),
-        value = "0.8",
+        value = "0.85",
         step = 0.01
       ) ,
       
@@ -192,14 +195,14 @@ inputPanel(
       numericInput(
         inputId = "mean_time_review",
         label = "$$\\mu$$",
-        value = "2",
+        value = "1",
         step = "1"
       ) ,
     
       numericInput(
         inputId = "sd_time_review",
         label = "$$\\sigma$$",
-        value = "0.1",
+        value = "0.2",
         step = "1"
       ) ,
     
@@ -207,7 +210,7 @@ inputPanel(
       numericInput(
         inputId = "prob_kludgy_review_when_kludge_careful",
         label = "$$P(K)|(K, C)$$" %>% withMathJax() ,
-        value = "0.8"
+        value = "0.85"
       ) ,
     
       numericInput(
@@ -238,28 +241,28 @@ inputPanel(
       numericInput(
         inputId = "prob_negative_when_correct_kludgy_accurate",
         label = "$$P(-)|(K, +, A)$$" %>%  withMathJax(),
-        value = "0.2",
+        value = "0.1",
         step = 0.01
       ) ,
       
       numericInput(
         inputId = "prob_negative_when_correct_not_kludgy_accurate",
         label = "$$P(-)|(!K, +, A)$$"  %>%  withMathJax(),
-        value = "0.2",
+        value = "0.1",
         step = 0.01
       ) ,
     
       numericInput(
         inputId = "prob_negative_when_incorrect_kludgy_accurate",
         label = "$$P(-)|(K, -, A)$$"  %>%  withMathJax(),
-        value = "0.8",
+        value = "0.85",
         step = 0.01
       ) ,
       
       numericInput(
         inputId = "prob_negative_when_incorrect_not_kludgy_accurate",
         label = "$$P(-)|(!K, -, A)$$"  %>%  withMathJax(),
-        value = "0.8",
+        value = "0.85",
         step = 0.01
       ) ,
     
@@ -274,14 +277,14 @@ inputPanel(
       numericInput(
         inputId = "prob_negative_when_correct_not_kludgy_inaccurate",
         label = "$$P(-)|(!K, +, I)$$"  %>%  withMathJax(),
-        value = "0.2",
+        value = "0.1",
         step = 0.01
       ) ,
     
       numericInput(
         inputId = "prob_negative_when_incorrect_kludgy_inaccurate",
         label = "$$P(-)|(K, -, I)$$"  %>%  withMathJax(),
-        value = "0.2",
+        value = "0.1",
         step = 0.01
       ) ,
       
@@ -295,14 +298,14 @@ inputPanel(
       numericInput(
         inputId = "mean_time_accurate",
         label = "$$\\mu|A$$"  %>%  withMathJax() ,
-        value = "2",
+        value = "1",
         step = "1"
       ) ,
     
       numericInput(
         inputId = "mean_time_inaccurate",
         label = "$$\\mu|I$$"  %>%  withMathJax(),
-        value = "2",
+        value = "1",
         step = "1"
       ) ,
       
@@ -310,7 +313,7 @@ inputPanel(
       numericInput(
         inputId = "sd_time_meta_review",
         label = "$$\\sigma$$"  %>%  withMathJax(),
-        value = "0.5",
+        value = "0.2",
         step = "0.1"
       ) 
 
@@ -345,9 +348,36 @@ game_results <- eventReactive(eventExpr = input$go , valueExpr = {
 
   names(values) <- names(input)
 
-  
-  result <- simulate_game_simmer(values)
 
+  simulate_and_label <- function(round, values){
+    
+    simulated <- simulate_game_simmer(values)
+    
+    # saida <- list(
+    #   data = simulated$data %>% 
+    #     mutate(
+    #       round = round
+    #     ),
+    #   
+    #   entropy = simulated$entropy %>% 
+    #     mutate(
+    #       round = round
+    #     )
+    # )
+    
+    saida
+
+  }
+  
+  browser()
+  
+  tictoc::tic("tudo")
+  result <- furrr::future_map(
+    .x = 1:30,
+    .f = ~simulate_and_label(round = .x, values = values),
+    .progress = TRUE
+  )
+  tictoc::toc()
 
   result
 
@@ -365,7 +395,9 @@ game_results <- eventReactive(eventExpr = input$go , valueExpr = {
 renderPlot({
   
 
+  
   data <- game_results()$data
+
 
   merges_kludge <- data %>% 
     filter(
@@ -393,6 +425,9 @@ renderPlot({
     theme(
       legend.position = "top",
       axis.text.x = element_text(angle = 90)
+    ) +
+    ggtitle(
+      label = "Kludge/Not Kludge Merged"
     )
 
   
@@ -406,6 +441,8 @@ renderPlot({
     mutate(
       to_be_reviewed = if_else(to_be_reviewed == 1, "Reviewed", "Not Reviewed")
     )
+    
+    
   
   
   review_plot <- ggplot(review_statuses) +
@@ -420,7 +457,7 @@ renderPlot({
     theme(
       legend.position = "top",
       axis.text.x = element_text(angle = 90)
-    )
+    ) + ggtitle("Reviewed/Not Reviewed PRs")
     
   meta_review_statuses <- data %>% 
     group_by(
@@ -431,7 +468,7 @@ renderPlot({
     ) %>% 
     mutate(
       to_be_metareviewed = if_else(to_be_metareviewed == 1, "MetaReviewed", "Not MetaReviewed")
-    )
+    ) 
   
 
   meta_review_plot <- ggplot(meta_review_statuses) +
@@ -446,7 +483,7 @@ renderPlot({
     theme(
       legend.position = "top",
       axis.text.x = element_text(angle = 90)
-    )
+    )+ ggtitle("MetaReviewed/Not MetaReviewed PRs")
   
   merges_developer <- data %>% 
     filter(
@@ -461,15 +498,15 @@ renderPlot({
     geom_bar(
       aes(
         x = developer,
-        fill = developer
-      ),
-      show.legend = FALSE
+        fill = factor(developer)
+      )
     ) +
     theme_minimal() +
+    scale_x_discrete() + 
     theme(
       legend.position = "top",
       axis.text.x = element_text(angle = 90)
-    ) 
+    ) + ggtitle("Merges by developer")
   
   time_to_develop <- data %>% 
     group_by(
@@ -499,7 +536,7 @@ renderPlot({
     geom_density(
       aes(
         x = time_to_develop,
-        color = developer
+        color = factor(developer)
       ),
       size = 1
     ) +
@@ -535,8 +572,34 @@ renderPlot({
     ) 
 
 
+  
+
+  
+  time_to_develop_time <- ggplot(time_to_develop,
+                                aes(
+        x = begin,
+        y = time_to_develop,
+        color = factor(developer)
+                                  
+                                )
+                                
+                                ) +
+    geom_point(
+        alpha = 0.3
+    ) +
+    geom_smooth() +
+    theme_minimal() +
+    theme(
+      legend.position = "top"
+    ) 
+    
+  
+
+
+
+  
   (kludge_plot | review_plot | meta_review_plot | pull_request_plot) / 
-    (time_dist | time_dist_d | cum_merged_devs )
+    (time_dist | time_dist_d | time_to_develop_time | cum_merged_devs )
   
   
   
@@ -549,6 +612,65 @@ height = 600
 
 
 ```
+
+
+
+```{r, echo=FALSE}
+
+# renderPlot({
+# 
+#   data <- game_results()$data
+# 
+# 
+#   max_start = max(data$time)
+#   
+#   trajectories <- data %>% 
+#     dplyr::select(
+#       time,
+#       pullrequest,
+#       cur_stage,
+#       rework,
+#       phase
+#     ) %>% 
+#     group_by(
+#       pullrequest
+#     ) %>% 
+#     mutate(
+#       start_pr = min(time)
+#     ) %>% 
+#     pivot_wider(
+#       names_from = phase,
+#       values_from = time
+#     ) %>% 
+#     janitor::clean_names() %>% 
+#     replace_na(
+#       list(end = max_start)
+#     )
+#     
+#     ggplot(trajectories) +
+#       geom_segment(
+#         aes(
+#           y = start_pr,
+#           yend = start_pr,
+#           x = start - start_pr,
+#           xend = end - start_pr,
+#           color = cur_stage
+#         )
+#         
+#       )
+#   
+# },
+# 
+# height = 800
+# 
+# )
+
+
+```
+
+
+
+
 
 
 
@@ -607,10 +729,6 @@ renderReactable({
 
 
 ```
-
-
-
-
 
 
 
