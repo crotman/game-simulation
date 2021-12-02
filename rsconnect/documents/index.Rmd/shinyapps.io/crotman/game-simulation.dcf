@@ -1,0 +1,13 @@
+name: game-simulation
+title: game-simulation
+username:
+account: crotman
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 5237768
+bundleId: 5319869
+url: https://crotman.shinyapps.io/game-simulation/
+when: 1638462781.0258
+lastSyncTime: 1638462781.0258
+asMultiple: FALSE
+asStatic: FALSE

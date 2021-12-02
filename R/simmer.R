@@ -10,6 +10,39 @@ simulate_game_simmer <- function(
 
 #### functions ####
 
+
+  get_first_review_kludge <- function(){
+    rework <- get_attribute(env, keys = "rework")
+    if(rework == 0){
+      get_attribute(env, keys = "review_kludge")
+    }else{
+      get_attribute(env, keys = "first_review_kludge")
+    }
+  }
+
+  get_first_kludge <-  function(){
+    rework <- get_attribute(env, keys = "rework")
+    if(rework == 0){
+      get_attribute(env, keys = "kludge")
+    }else{
+      get_attribute(env, keys = "first_kludge")
+    }
+  }
+
+  set_first_kludge_review <- function(.trj){
+
+    .trj %>%
+      set_attribute_and_global(
+        keys = "first_review_kludge",
+        values = get_first_review_kludge
+      ) %>%
+      set_attribute_and_global(
+        keys = "first_kludge",
+        values = get_first_review_kludge
+      )
+
+  }
+
   add_resource_reduce <- function(a, b){
     add_resource(.env = a, name = b)
   }
@@ -142,8 +175,8 @@ simulate_game_simmer <- function(
   set_metareview <- function(){
     current_dev <- get_attribute(env, 'metareviewer') %>% str_remove("developer_") %>% as.integer()
     action <- params$devs[["strategy_meta"]][current_dev]
-    kludge <- get_attribute(env, 'last_kludge')
-    review_kludge <- get_attribute(env, 'last_review_kludge')
+    kludge <- get_attribute(env, 'first_kludge')
+    review_kludge <- get_attribute(env, 'first_review_kludge')
     correct_review <- kludge == review_kludge
     prob <- case_when(
       kludge == 0 & action == actions$Accurate & !correct_review ~ params$prob_negative_when_incorrect_not_kludgy_accurate,
@@ -220,10 +253,14 @@ simulate_game_simmer <- function(
     set_attribute_and_global(keys = "stage", values = get_stage_id(cur_stage = "MetaReview", cur_phase = "Start")) %>%
     set_attribute_and_global(keys = "metareviewer", values = get_developer_id ) %>%
     seize_selected(1) %>%
+    set_attribute_and_global(keys = "seized", values = 1) %>%
     timeout(set_time_to_metareview) %>%
     set_attribute_and_global(keys = "metareview_good", values = set_metareview) %>%
     set_attribute_and_global(keys = "stage", values = get_stage_id(cur_stage = "MetaReview", cur_phase = "End")) %>%
-    release_selected(1)
+    release_selected(1) %>%
+    timeout(0.0001) %>%
+    set_attribute_and_global(keys = "seized", values = 0)
+
 
 #### review traj ####
   review_traj <- trajectory("review_traj") %>%
@@ -232,24 +269,21 @@ simulate_game_simmer <- function(
     timeout(0.0001) %>%
     set_attribute_and_global(keys = "stage", values = get_stage_id(cur_stage = "Review", cur_phase = "Start")) %>%
     seize_selected(1) %>%
+    set_attribute_and_global(keys = "seized", values = 1) %>%
     timeout(set_time_to_review) %>%
     release_selected(1) %>%
     set_attribute_and_global(keys = "review_kludge", values = set_review) %>%
-    set_attribute_and_global(
-      keys = "last_review_kludge",
-      values = function(){get_attribute(env, keys = "review_kludge")}
-    ) %>%
-    set_attribute_and_global(
-      keys = "last_kludge",
-      values = function(){get_attribute(env, keys = "kludge")}
-    ) %>%
     set_attribute_and_global(keys = "stage", values = get_stage_id(cur_stage = "Review", cur_phase = "End")) %>%
+    timeout(0.0001) %>%
+    set_attribute_and_global(keys = "seized", values = 0) %>%
+    set_first_kludge_review() %>%
     set_attribute_and_global(
       keys = "reviewed",
       mod = "+",
       init = 0,
       values = 1
     )
+
 
 
 
@@ -278,11 +312,14 @@ simulate_game_simmer <- function(
     set_attribute_and_global(keys = "developer", values = get_developer_id ) %>%
     set_attribute_and_global(keys = "stage", values = get_stage_id(cur_stage = "Development", cur_phase = "Start")) %>%
     seize_selected(1) %>%
+    set_attribute_and_global(keys = "seized", values = 1) %>%
     timeout(task = set_time_to_develop ) %>%
     set_attribute_and_global(keys = "kludge", values = set_kludge ) %>%
     set_attribute_and_global(keys = "review_kludge", values = -1 ) %>%
     set_attribute_and_global(keys = "stage", values = get_stage_id(cur_stage = "Development", cur_phase = "End")) %>%
     release_selected(1) %>%
+    timeout(0.0001) %>%
+    set_attribute_and_global(keys = "seized", values = 0) %>%
     set_attribute_and_global(keys = "to_be_reviewed", values = set_to_be_reviewed) %>%
     branch(
       option = branch_review,

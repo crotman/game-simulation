@@ -1,5 +1,7 @@
 ---
-output: html_document
+output: 
+  html_document:
+    css: styles.css
 
 runtime: shiny
 
@@ -7,10 +9,9 @@ runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE )
 
 library(tidyverse)
-library(structtibble)
 library(shiny)
 library(truncnorm)
 library(shiny)
@@ -18,38 +19,108 @@ library(reactable)
 library(patchwork)
 library(rhandsontable)
 library(scales)
+library(ggforce)
+library(here)
+library(waiter)
+library(shinydashboardPlus)
+library(ggrepel)
+library(slider)
 
 source("R/create_enums.R", encoding = "UTF-8")
-source("R/simulator.R", encoding = "UTF-8")
 source("R/game_simulation.R", encoding = "UTF-8")
 source("R/simmer.R", encoding = "UTF-8")
 
-future::plan(future::multiprocess)
+
+# # future::plan(future::multicore)
+# 
+# future::plan(future::multisession, workers = 8)
 
 
 ```
 
 
-# One Simulation
+# Simulation parameters
 
+  
+  
 
 ```{r, echo=FALSE}
 #user inputs
 
 
+n_executions <- reactive({
+  
+  input$n_executions
+  
+})
 
-"Developers" %>% h4()
-inputPanel(
-  rHandsontableOutput("devs", width = 600, height = 150)  
+
+"Players" %>%  h4()
+
+wellPanel(
+
+splitLayout(cellWidths = c("50%", "50%"),
+
+verticalLayout(  
+"Developers" %>% h5(),
+  rHandsontableOutput("devs", width = 100, height = 150)  
+)
+,
+
+verticalLayout(
+"Reviewers"  %>% h5(),
+  rHandsontableOutput("revs", width = 100, height = 150)
+)
+
+)
+
 )
 
 
-"Reviewers"  %>% h4()
-inputPanel(
-  rHandsontableOutput("revs", width = 600, height = 150)
+splitLayout(
+
+  
+verticalLayout(  
+"Development Process" %>%  h4(),
+
+wellPanel(
+
+  radioButtons(
+    inputId = "process_review_more",
+    label = "Review",
+    choices = c("No", "1/3", "2/3"),
+    inline = TRUE
+  ),
+  
+  radioButtons(
+    inputId = "process_metareview",
+    label = "MetaReview",
+    choices = c("No", "1/3", "2/3"),
+    inline = TRUE
+  )
+  
+)
+)
+,
+
+verticalLayout(  
+"Development" %>%  h4(),
+
+
+wellPanel(
+
+  radioButtons(
+    inputId = "characteristics_kludges_harmful",
+    label = "Klusges harmful",
+    choices = c("A little", "A lot"),
+    inline = TRUE
+  )
+  
+
 )
 
-
+)
+)
 
 output$devs <- renderRHandsontable({
 
@@ -58,7 +129,7 @@ output$devs <- renderRHandsontable({
       strategy_meta = c(actions$Accurate, actions$Accurate )
     )
 
-    rhandsontable(DF, width = 550) %>%
+    rhandsontable(DF, width = 300) %>%
         hot_col(
           col = "strategy_dev",
           type = "dropdown",
@@ -79,7 +150,7 @@ output$revs <- renderRHandsontable({
       strategy_rev = c(actions$Careful, actions$Careful ),
     )
 
-    rhandsontable(DF, width = 550) %>%
+    rhandsontable(DF, width = 300) %>%
         hot_col(
           col = "strategy_rev",
           type = "dropdown",
@@ -87,8 +158,15 @@ output$revs <- renderRHandsontable({
         ) 
 
   })
+```
+
+<br>
+
+<details>
+  <summary>Click if you want to see details</summary>
 
 
+```{r, echo=FALSE}
 "Game" %>%  h4()
 
 
@@ -110,7 +188,7 @@ inputPanel(
       numericInput(
         inputId = "prob_review",
         label = "$$P(Review)$$" %>% withMathJax(),
-        value = "0.33"
+        value = "0.5"
       ) ,
       
       numericInput(
@@ -123,8 +201,13 @@ inputPanel(
         inputId = "lambda",
         label = "$$\\lambda$$"  %>% withMathJax(),
         value = "0.1"
-      ) 
+      ) ,
       
+      numericInput(
+        inputId = "n_executions",
+        label = "$$executions$$"  %>% withMathJax(),
+        value = "5"
+      ) 
 
       
 )
@@ -137,13 +220,13 @@ inputPanel(
       numericInput(
         inputId = "prob_diligent",
         label = "$$P(K)|D$$" %>%  withMathJax(),
-        value = "0.15",
+        value = "0.1",
         step = 0.01
       ) ,
       numericInput(
         inputId = "prob_kludgy",
         label = "$$P(K)|K$$" %>%  withMathJax(),
-        value = "0.85",
+        value = "0.9",
         step = 0.01
       ) ,
       
@@ -222,7 +305,7 @@ inputPanel(
       numericInput(
         inputId = "prob_kludgy_review_when_kludge_negligent",
         label = "$$P(K)|(K, N)$$" %>% withMathJax(),
-        value = "0.4"
+        value = "0.25"
       ) ,
     
       numericInput(
@@ -270,7 +353,7 @@ inputPanel(
       numericInput(
         inputId = "prob_negative_when_correct_kludgy_inaccurate",
         label = "$$P(-)|(K, +, I)$$"  %>%  withMathJax(),
-        value = "0.4",
+        value = "0.6",
         step = 0.01
       ) ,
       
@@ -320,17 +403,36 @@ inputPanel(
 )
 
 
+```
+
+
+</details>
+
+
+<br>
+
+
+```{r, echo=FALSE}
+
   actionButton(
     inputId = "go",
     label = "GO!"
   )
 
+
 ```
+
 
 
 ```{r, echo=FALSE}
 game_results <- eventReactive(eventExpr = input$go , valueExpr = {
-
+  
+  
+  progress <- shiny::Progress$new()
+  
+  on.exit(progress$close())
+  
+  progress$set(message = "Simulating", value = 0)
   
   info <- list()
     
@@ -346,12 +448,18 @@ game_results <- eventReactive(eventExpr = input$go , valueExpr = {
     }
   )
 
+  
+  
   names(values) <- names(input)
 
 
-  simulate_and_label <- function(round, values){
+
+  simulate_and_label <- function(round, values, progress, n_executions){
     
+
     simulated <- simulate_game_simmer(values)
+    
+    progress$inc(1/n_executions)
     
     # saida <- list(
     #   data = simulated$data %>% 
@@ -365,21 +473,74 @@ game_results <- eventReactive(eventExpr = input$go , valueExpr = {
     #     )
     # )
     
-    saida
+    simulated
 
   }
   
-  browser()
+
+  print("vai rodar")
   
   tictoc::tic("tudo")
-  result <- furrr::future_map(
-    .x = 1:30,
-    .f = ~simulate_and_label(round = .x, values = values),
-    .progress = TRUE
+
+
+  # result <- furrr::future_map(
+  #   .x = 1:n_executions,
+  #   .f = ~simulate_and_label(
+  #     round = .x, 
+  #     values = values 
+  #     # progress = progress, 
+  #     # n_executions = n_executions
+  #   ),
+  #   .progress = TRUE
+  # )
+  
+      
+  result <- purrr::map(
+    .x = 1:n_executions(),
+    .f = ~simulate_and_label(
+      round = .x,
+      values = values,
+      progress = progress,
+      n_executions = n_executions()
+    )
   )
+  
   tictoc::toc()
 
-  result
+
+  print("rodou")
+
+  data <- result %>% 
+    map2_df(
+      .y = 1:n_executions(),
+      .f = function(data, i){
+        data$data %>% 
+          mutate(
+            round = i
+          )
+      }
+    )
+  
+
+  entropy <- result %>% 
+    map2_df(
+      .y = 1:n_executions(),
+      .f = function(data, i){
+        data$entropy %>% 
+          mutate(
+            round = i
+          )
+      }
+    )
+  
+  
+  output_result <- list()
+  
+  output_result$data <- data
+  output_result$entropy <- entropy
+  
+  
+  output_result
 
 })
   
@@ -392,11 +553,23 @@ game_results <- eventReactive(eventExpr = input$go , valueExpr = {
 
 ```{r, echo=FALSE}
 
-renderPlot({
+output$plot_results <-  renderPlot({
   
+  n_charts <- 3
+  
+  total_steps = isolate(input$total_steps)
+  
+  data <- game_results()$data %>% 
+    mutate(
+      developer = str_glue("Dev{developer}") %>% as.character() %>%  as.factor(),
+      reviewer = str_glue("Rev{reviewer}") %>% as.character() %>%  as.factor()
+    )
+    
+  progress <- shiny::Progress$new()
+  
+  on.exit(progress$close())
 
-  
-  data <- game_results()$data
+  progress$set(message = "Plotting results", value = 0)
 
 
   merges_kludge <- data %>% 
@@ -404,22 +577,27 @@ renderPlot({
       kludge %in% c(0,1)      
     ) %>% 
     group_by(
-      pullrequest, rework
+      pullrequest, rework, round, developer
     ) %>% 
     summarise(
       kludge = mean(kludge)
     ) %>% 
-    mutate(
-      kludge = if_else(kludge == 1, "Kludge", "Not Kludge")
+    group_by(
+      round, developer
+    ) %>% 
+    summarise(
+      kludge = mean(kludge)
     )
   
+
   kludge_plot <- ggplot(merges_kludge) +
-    geom_bar(
+    geom_density(
       aes(
         x = kludge,
-        fill = kludge
+        color = developer,
+        fill = developer
       ),
-      show.legend = FALSE
+      alpha = 0.2
     ) +
     theme_minimal() +
     theme(
@@ -427,188 +605,485 @@ renderPlot({
       axis.text.x = element_text(angle = 90)
     ) +
     ggtitle(
-      label = "Kludge/Not Kludge Merged"
+      label = "% Kludge"
+    ) +
+    scale_x_continuous(
+      labels = percent_format(accuracy = 1),
+      limits = c(0,1)
     )
 
-  
-  review_statuses <- data %>% 
-    group_by(
-      pullrequest, rework
-    ) %>% 
-    summarise(
-      to_be_reviewed = max(to_be_reviewed, na.rm = TRUE)
-    ) %>% 
-    mutate(
-      to_be_reviewed = if_else(to_be_reviewed == 1, "Reviewed", "Not Reviewed")
-    )
-    
-    
-  
-  
-  review_plot <- ggplot(review_statuses) +
-    geom_bar(
-      aes(
-        x = to_be_reviewed,
-        fill = to_be_reviewed
-      ),
-      show.legend = FALSE
-    ) +
-    theme_minimal() +
-    theme(
-      legend.position = "top",
-      axis.text.x = element_text(angle = 90)
-    ) + ggtitle("Reviewed/Not Reviewed PRs")
-    
-  meta_review_statuses <- data %>% 
-    group_by(
-      pullrequest, rework
-    ) %>% 
-    summarise(
-      to_be_metareviewed = max(to_be_metareviewed, na.rm = TRUE)
-    ) %>% 
-    mutate(
-      to_be_metareviewed = if_else(to_be_metareviewed == 1, "MetaReviewed", "Not MetaReviewed")
-    ) 
-  
+  progress$inc(1/n_charts)
 
-  meta_review_plot <- ggplot(meta_review_statuses) +
-    geom_bar(
-      aes(
-        x = to_be_metareviewed,
-        fill = to_be_metareviewed
-      ),
-      show.legend = FALSE
-    ) +
-    theme_minimal() +
-    theme(
-      legend.position = "top",
-      axis.text.x = element_text(angle = 90)
-    )+ ggtitle("MetaReviewed/Not MetaReviewed PRs")
-  
-  merges_developer <- data %>% 
+  merged_prs_per_developer <- data %>% 
     filter(
-      merged == 1
+      cur_stage == "Merge",
+      phase == "End"
+    ) %>% 
+    group_by(
+      round, developer
+    ) %>% 
+    summarise(
+      n = n()
+    )
+    
+  
+  merged_prs_per_developer_plot <- ggplot(
+    merged_prs_per_developer,
+    aes(
+      x = developer,
+      y = n
+    )
+  ) +
+    geom_violin(
+      aes(
+        fill = developer,
+        color = developer
+      ),
+      alpha = 0.2,
+      draw_quantiles = c(0.25, 0.5, 0.75)
+    ) +
+    geom_sina(
+      aes(
+        color = developer
+      ),
+      alpha = 0.6
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "top",
+      axis.text.x = element_text(angle = 90)
+    ) +
+    ggtitle(
+      label = "Merges \n Developers payoff?"
+    ) +
+    scale_y_continuous(
+      limits = c(0,NA)
+    )
+
+  progress$inc(1/n_charts)
+
+  cumulative_merges <- data %>% 
+    filter(
+      cur_stage == "Merge",
+      phase == "End"
+    ) %>% 
+    mutate(
+      unitario = 1
+    ) %>% 
+    arrange(
+      time
+    ) %>% 
+    group_by(
+      round, developer
+    ) %>% 
+    mutate(
+      cum_pr = cumsum(unitario)
+    ) %>% 
+    ungroup()
+  
+  cumulative_merges_total <- data %>% 
+    filter(
+      cur_stage == "Merge",
+      phase == "End"
+    ) %>% 
+    mutate(
+      unitario = 1
+    ) %>% 
+    arrange(
+      time
+    ) %>% 
+    group_by(
+      round
+    ) %>% 
+    mutate(
+      cum_pr = cumsum(unitario)
+    ) %>% 
+    ungroup()
+  
+
+  cum_pr <- ggplot(
+    cumulative_merges_total,
+    aes(
+      x = time,
+      y = cum_pr
+    ),
+    ) + 
+    geom_line(
+      aes(
+        group = interaction(round)
+      ),
+      alpha = 0.2
+    ) +
+    geom_smooth(
+      size = 2,
+      se = FALSE,
+      color = "darkgreen"
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "top"
+    ) +
+    ggtitle(
+      label = "Cumulative Merges"
+    ) +
+    annotate(
+      geom = "text",
+      size = 5,
+      fontface = "bold",
+      x = max(cumulative_merges_total$time) + 100,
+      y = last(
+        cumulative_merges_total$cum_pr, order_by = cumulative_merges_total$time
+      ),
+      label = number(
+        last(
+          cumulative_merges_total$cum_pr, 
+          order_by = cumulative_merges_total$time), accuracy = 1
+        ),
+      color = "darkgreen"
+    ) +
+    scale_y_continuous(
+      limits = c(0, NA),
+      sec.axis = sec_axis(identity)
+    ) 
+
+  
+  final_merges <- cumulative_merges %>% 
+    group_by(
+      developer, round
+    ) %>% 
+    summarise(
+      total_merges = last(cum_pr, order_by = time)
     ) %>% 
     group_by(
       developer
+    ) %>% 
+    summarise(
+      total_merges = mean(total_merges)
+    )
+     
+  cum_por_dev <- ggplot(
+    cumulative_merges,
+    aes(
+      color = developer,
+      x = time,
+      y = cum_pr
+    )
+    ) + 
+    geom_line(
+      aes(
+        group = interaction(round, developer)
+      ),
+      alpha = 0.2
+    ) +
+    geom_smooth(
+      size = 2,
+      se = FALSE
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "top",
+    ) +
+    ggtitle(
+      label = "Cumulative Merges"
+    ) +
+    geom_text_repel(
+      data = final_merges,
+      x = max(cumulative_merges$time) + 100,
+      size = 5,
+      fontface = "bold",
+      aes(
+        y = total_merges,
+        label = number(total_merges, accuracy = 1),
+        color = developer
+      )
+    ) +
+    scale_y_continuous(
+      limits = c(0, NA),
+      sec.axis = sec_axis(identity)
     ) 
 
+  cumulative_merges <- data %>% 
+    filter(
+      cur_stage == "Merge",
+      phase == "End"
+    ) %>% 
+    mutate(
+      unitario = 1
+    ) %>% 
+    arrange(
+      time
+    ) %>% 
+    group_by(
+      round, developer
+    ) %>% 
+    mutate(
+      cum_pr = cumsum(unitario)
+    ) %>% 
+    ungroup()
   
-  pull_request_plot <- ggplot(merges_developer) +
-    geom_bar(
+  progress$inc(1/n_charts)
+  
+
+  merged_prs_per_time <- data %>% 
+    filter(
+      cur_stage == "Merge",
+      phase == "End"
+    ) %>% 
+    arrange(time) %>% 
+    group_by(round) %>% 
+    mutate(
+      merges_300 = slide_index_dbl(
+        .x = time,
+        .i = time,
+        .f = ~length(.x),
+        .before = 300,
+        .complete = TRUE
+      )
+    ) %>% 
+    ungroup()
+
+  merges_per_time <- ggplot(
+    merged_prs_per_time,
+    aes(
+      x = time,
+      y = merges_300
+    )
+    ) + 
+    geom_line(
       aes(
-        x = developer,
-        fill = factor(developer)
+        group = round
+      ),
+      alpha = 0.1
+    ) +
+    geom_smooth(
+      size = 2,
+      se = FALSE,
+      color = "darkgreen"
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "top",
+    ) +
+    ggtitle(
+      label = "Merges last 300 steps"
+    ) +
+    scale_y_continuous(
+      limits = c(0, NA),
+      sec.axis = sec_axis(identity)
+    ) 
+
+
+  merged_prs_per_time_per_developer <- data %>% 
+    filter(
+      cur_stage == "Merge",
+      phase == "End"
+    ) %>% 
+    arrange(time) %>% 
+    group_by(round, developer) %>% 
+    mutate(
+      merges_300 = slide_index_dbl(
+        .x = time,
+        .i = time,
+        .f = ~length(.x),
+        .before = 300,
+        .complete = TRUE
+      )
+    ) %>% 
+    ungroup()
+
+  merges_per_time_per_developer <- ggplot(
+    merged_prs_per_time_per_developer,
+    aes(
+      x = time,
+      y = merges_300,
+      color = developer
+    )
+    ) + 
+    geom_line(
+      aes(
+        group = interaction(round, developer)
+      ),
+      alpha = 0.2
+    ) +
+    geom_smooth(
+      size = 2,
+      se = FALSE,
+      aes(
+        group = developer
       )
     ) +
     theme_minimal() +
-    scale_x_discrete() + 
+    theme(
+      legend.position = "top",
+    ) +
+    ggtitle(
+      label = "Merges last 300 steps"
+    ) +
+    scale_y_continuous(
+      limits = c(0, NA),
+      sec.axis = sec_axis(identity)
+    ) 
+
+
+  metareviews_rate <- data %>% 
+    filter(
+      cur_stage == "MetaReview",
+      phase == "End"
+    ) %>% 
+    group_by(
+      round, reviewer
+    ) %>% 
+    summarize(
+      good = sum(metareview_good == 1)/n()
+    ) %>% 
+    ungroup()
+  
+  
+  metareviews_rate_plot <- ggplot(
+    metareviews_rate,
+    aes(
+      x = reviewer,
+      y = good
+    )
+  ) +
+    geom_violin(
+      aes(
+        fill = reviewer,
+        color = reviewer
+      ),
+      alpha = 0.2,
+      draw_quantiles = c(0.25, 0.5, 0.75)
+    ) +
+    geom_sina(
+      aes(
+        color = reviewer
+      ),
+      alpha = 0.6
+    ) +
+    theme_minimal() +
     theme(
       legend.position = "top",
       axis.text.x = element_text(angle = 90)
-    ) + ggtitle("Merges by developer")
-  
-  time_to_develop <- data %>% 
+    ) +
+    ggtitle(
+      label = "Good MetaReviews Rate per reviewer\n(reviewer's payoff?)"
+    ) +
+    scale_y_continuous(
+      limits = c(0,1),
+      labels = percent_format(accuracy = 1)
+    )
+
+
+  stages_time <- data %>% 
+    filter(
+      seized == 1
+    ) %>% 
     group_by(
-      pullrequest, developer
+      pullrequest,
+      round,
+      cur_stage,
+      phase,
+      rework,
+      developer,
+      reviewer
     ) %>% 
     summarise(
-      end = weighted.mean(x = time, w = !is.na(merged) , na.rm = TRUE),
-      begin = min(time, na.rm = TRUE)
+      time = min(time)
+    ) %>% 
+    ungroup() %>% 
+    pivot_wider(
+      names_from = phase,
+      values_from = c(time, developer, reviewer)
+    ) %>% 
+    replace_na(
+      list(time_End = total_steps)
+    ) %>% 
+    filter(
+      cur_stage %in% c("Development", "Review", "MetaReview")
     ) %>% 
     mutate(
-      time_to_develop = end - begin
+      cur_stage = if_else(cur_stage == "Development" & rework > 0, "Rework", cur_stage ),
+      duration = time_End - time_Start,
+      alocation = case_when(
+        cur_stage %in% c("Development", "Rework", "MetaReview") ~ developer_End %>%  as.character(),
+        cur_stage %in% c("Review") ~ reviewer_End %>%  as.character()
+      )
+    ) %>% 
+    group_by(
+      alocation, cur_stage, round
+    ) %>% 
+    summarise(frac_time = sum(duration)/total_steps)      
+    
+  time_idle <- stages_time %>% 
+    group_by(
+      alocation, round
+    ) %>% 
+    summarise(
+      frac_time = 1 - sum(frac_time)
+    ) %>% 
+    mutate(
+      cur_stage = "Idle"
+    )
+    
+
+  frac_total = bind_rows(
+    time_idle,
+    stages_time
+  ) %>% 
+    filter(!is.na(alocation))
+    
+    
+  frac_time_plot <- ggplot(
+    frac_total,
+    aes(
+      x = cur_stage,
+      y = frac_time
+    )
+    ) +
+    geom_violin(
+      aes(
+        color = cur_stage,
+        fill = cur_stage
+      ),
+      alpha = 0.2,
+      draw_quantiles = c(0.25, 0.5, 0.75),
+      scale = "width"
+    ) +
+    geom_sina(
+      aes(
+        color = cur_stage,
+        fill = cur_stage
+      ),
+      alpha = 0.6
+    ) +
+    theme_minimal() +
+    facet_wrap(~alocation, ncol = 2) +
+    scale_y_continuous(
+      label = percent_format()
+    ) +
+    theme(
+      legend.position = "top"
+    )
+    
+  
+  patch <- (kludge_plot | merged_prs_per_developer_plot | metareviews_rate_plot) / cum_pr / cum_por_dev / merges_per_time / merges_per_time_per_developer / frac_time_plot + 
+    plot_layout(
+      heights = c(1, 1, 1, 1, 1, 3)
     )
   
-  time_dist <- ggplot(time_to_develop) +
-    geom_density(
-      aes(
-        x = time_to_develop
-      ),
-      size = 1
-    ) +
-    theme_minimal() +
-    theme(
-      legend.position = "top"
-    ) 
-    
-  time_dist_d <- ggplot(time_to_develop) +
-    geom_density(
-      aes(
-        x = time_to_develop,
-        color = factor(developer)
-      ),
-      size = 1
-    ) +
-    theme_minimal() +
-    theme(
-      legend.position = "top"
-    ) 
-
+  patch + plot_annotation(
+    title = isolate("Results after {n_executions()} executions" %>%  str_glue()),
+    theme = theme(plot.title = element_text(size = 20))
+  )
   
   
-  cum_merged_devs <- 
-    time_to_develop %>% 
-    arrange(end) %>% 
-    group_by(
-      developer
-    ) %>% 
-    mutate(
-      unit = 1,
-      cum_merged_prs = cumsum(unit)
-    ) %>% 
-    ggplot() +
-    geom_line(
-      aes(
-        x = end,
-        y = cum_merged_prs,
-        color = factor(developer)
-      ),
-      size = 1
-    ) +
-    theme_minimal() +
-    theme(
-      legend.position = "top"
-    ) 
+}
 
 
-  
-
-  
-  time_to_develop_time <- ggplot(time_to_develop,
-                                aes(
-        x = begin,
-        y = time_to_develop,
-        color = factor(developer)
-                                  
-                                )
-                                
-                                ) +
-    geom_point(
-        alpha = 0.3
-    ) +
-    geom_smooth() +
-    theme_minimal() +
-    theme(
-      legend.position = "top"
-    ) 
-    
-  
-
-
-
-  
-  (kludge_plot | review_plot | meta_review_plot | pull_request_plot) / 
-    (time_dist | time_dist_d | time_to_develop_time | cum_merged_devs )
-  
-  
-  
-  
-},
-
-height = 600
-  
 )
+
+
+plotOutput(outputId = "plot_results", height = "2000px" )
 
 
 ```
@@ -686,49 +1161,49 @@ height = 600
 ```
 
 
-# Many Simulations
+<!-- # Many Simulations -->
 
 
-```{r, echo=FALSE}
+<!-- ```{r, echo=FALSE} -->
 
 
-possible_params <- read_rds("data/params.rds")
+<!-- possible_params <- read_rds("data/params.rds") -->
 
-output$hot <- renderRHandsontable({
-  
-    DF = tibble(param = "total_steps", value = "500" )
+<!-- output$hot <- renderRHandsontable({ -->
 
-    rhandsontable(DF, width = 550) %>%
-        hot_col(col = "param", type = "dropdown", source = possible_params )
+<!--     DF = tibble(param = "total_steps", value = "500" ) -->
 
-  })
+<!--     rhandsontable(DF, width = 550) %>% -->
+<!--         hot_col(col = "param", type = "dropdown", source = possible_params ) -->
 
-
-inputPanel(
-  
-  verticalLayout(
-    rHandsontableOutput("hot", width = 600, height = 600)  ,
-    actionButton(inputId = "gotable",  label = "Go!")
-  )
-  
-)
+<!--   }) -->
 
 
-renderReactable({
-  
-    input$gotable
-    hot = isolate(input$hot)
-    if (!is.null(hot)) {
-      reactable(hot_to_r(input$hot))
-    }  
-  
-})
+<!-- inputPanel( -->
+
+<!--   verticalLayout( -->
+<!--     rHandsontableOutput("hot", width = 600, height = 600)  , -->
+<!--     actionButton(inputId = "gotable",  label = "Go!") -->
+<!--   ) -->
+
+<!-- ) -->
 
 
+<!-- renderReactable({ -->
+
+<!--     input$gotable -->
+<!--     hot = isolate(input$hot) -->
+<!--     if (!is.null(hot)) { -->
+<!--       reactable(hot_to_r(input$hot)) -->
+<!--     }   -->
+
+<!-- }) -->
 
 
 
-```
+
+
+<!-- ``` -->
 
 
 
