@@ -1,3 +1,9 @@
 .shiny-split-layout>div{
   overflow:hidden;
 }
+
+
+
+.main-container{
+  max-width: 90%;
+}

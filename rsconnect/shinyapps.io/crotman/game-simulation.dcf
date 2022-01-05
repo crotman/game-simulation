@@ -5,9 +5,7 @@ account: crotman
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 5237768
-bundleId: 5337166
+bundleId: 5360389
 url: https://crotman.shinyapps.io/game-simulation/
-when: 1638842387.73191
-lastSyncTime: 1638842387.73191
-asMultiple: FALSE
-asStatic: FALSE
+when: 1639254039.25394
+lastSyncTime: 1639254039.25394
