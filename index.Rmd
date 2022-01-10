@@ -43,6 +43,7 @@ library(gtree)
 source("R/create_enums.R", encoding = "UTF-8")
 source("R/game_simulation.R", encoding = "UTF-8")
 source("R/simmer.R", encoding = "UTF-8")
+source("R/game_solver.R", encoding = "UTF-8")
 
 
 
@@ -1194,7 +1195,6 @@ simulation_results <- eventReactive(eventExpr = input$solve , valueExpr = {
   
   n_1 <- n_executions_1()
 
-  browser()
   
   tictoc::tic("teste")
   
@@ -1213,95 +1213,95 @@ simulation_results <- eventReactive(eventExpr = input$solve , valueExpr = {
   #   .y = 1:length(values_1_games),
   #   .f = ~simulate_executions(values = .x, n_executions = n_1, combination = .y ),
   # )
-
-  results_1
-  
-  result_2 <- purrr::map(
-    .x = 1:n_executions_2(),
-    .f = ~simulate_and_label(
-      round = .x,
-      values = values_2,
-      progress = progress,
-      n_executions = n_executions_2()
-    )
-  )
-  
-  progress$set(message = "Simulating 2/2", value = 0)
-  
-  result_2 <- purrr::map(
-    .x = 1:n_executions_2(),
-    .f = ~simulate_and_label(
-      round = .x,
-      values = values_2,
-      progress = progress,
-      n_executions = n_executions_1()
-    )
-  )
-    
-  tictoc::toc()
-
-  data_1 <- result_1 %>% 
-    map2_df(
-      .y = 1:n_executions_1(),
-      .f = function(data, i){
-        data$data %>% 
-          mutate(
-            round = i
-          )
-      }
-    )
   
 
-  entropy_1 <- result_1 %>% 
-    map2_df(
-      .y = 1:n_executions_1(),
-      .f = function(data, i){
-        data$entropy %>% 
-          mutate(
-            round = i
-          )
-      }
-    )
+  eqs_1 <- solve_game(params = values_1_games, results = results_1)
+  
+  # result_2 <- purrr::map(
+  #   .x = 1:n_executions_2(),
+  #   .f = ~simulate_and_label(
+  #     round = .x,
+  #     values = values_2,
+  #     progress = progress,
+  #     n_executions = n_executions_2()
+  #   )
+  # )
+  # 
+  # progress$set(message = "Simulating 2/2", value = 0)
+  # 
+  # result_2 <- purrr::map(
+  #   .x = 1:n_executions_2(),
+  #   .f = ~simulate_and_label(
+  #     round = .x,
+  #     values = values_2,
+  #     progress = progress,
+  #     n_executions = n_executions_1()
+  #   )
+  # )
+  #   
+  # tictoc::toc()
+  # 
+  # data_1 <- result_1 %>% 
+  #   map2_df(
+  #     .y = 1:n_executions_1(),
+  #     .f = function(data, i){
+  #       data$data %>% 
+  #         mutate(
+  #           round = i
+  #         )
+  #     }
+  #   )
+  # 
+  # 
+  # entropy_1 <- result_1 %>% 
+  #   map2_df(
+  #     .y = 1:n_executions_1(),
+  #     .f = function(data, i){
+  #       data$entropy %>% 
+  #         mutate(
+  #           round = i
+  #         )
+  #     }
+  #   )
+  # 
+  # 
+  # data_2 <- result_2 %>% 
+  #   map2_df(
+  #     .y = 1:n_executions_2(),
+  #     .f = function(data, i){
+  #       data$data %>% 
+  #         mutate(
+  #           round = i
+  #         )
+  #     }
+  #   )
+  # 
+  # 
+  # entropy_2 <- result_2 %>% 
+  #   map2_df(
+  #     .y = 1:n_executions_2(),
+  #     .f = function(data, i){
+  #       data$entropy %>% 
+  #         mutate(
+  #           round = i
+  #         )
+  #     }
+  #   )
+  # 
+  #   
+  # output_result <- list()
+  # 
+  # output_result$data_1 <- data_1
+  # output_result$entropy_1 <- entropy_1
+  # output_result$data_2 <- data_2
+  # output_result$entropy_2 <- entropy_2
+  # 
+  # 
+  # browser()
+  
+  eqs_1
   
 
-  data_2 <- result_2 %>% 
-    map2_df(
-      .y = 1:n_executions_2(),
-      .f = function(data, i){
-        data$data %>% 
-          mutate(
-            round = i
-          )
-      }
-    )
-  
-
-  entropy_2 <- result_2 %>% 
-    map2_df(
-      .y = 1:n_executions_2(),
-      .f = function(data, i){
-        data$entropy %>% 
-          mutate(
-            round = i
-          )
-      }
-    )
-  
-    
-  output_result <- list()
-  
-  output_result$data_1 <- data_1
-  output_result$entropy_1 <- entropy_1
-  output_result$data_2 <- data_2
-  output_result$entropy_2 <- entropy_2
-  
-  
-  browser()
-  
-  output_result
-  
-  
-  
   
 })
   
