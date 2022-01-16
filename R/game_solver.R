@@ -1,11 +1,9 @@
 library(gtree)
 
 
+
 solve_game <- function(params, results){
 
-  params <- readr::read_rds("values.rds")
-
-  results <- readr::read_rds("results.rds")
 
   strategies <- purrr::map2_df(
     .x = params,
@@ -276,7 +274,6 @@ solve_game <- function(params, results){
 
   game_stages <- c(strategy_stages, payoff_stages)
 
-  browser()
 
   game = new_game(
     gameId = "Simulation",
@@ -286,13 +283,14 @@ solve_game <- function(params, results){
   )
 
 
-
   eq <- game %>%
-    game_solve() %>%
-    eq_tables(combine = 2)
+    game_solve()
 
+  browser()
 
-  eq
+  list(
+    eq = eq
+  )
 
 }
 
