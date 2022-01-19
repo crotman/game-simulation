@@ -49,7 +49,7 @@ source("R/game_solver.R", encoding = "UTF-8")
 
 
 
-local_cache <- cachem::cache_disk("data")
+local_cache <- cachem::cache_disk("data", max_size = Inf )
 
 
 simulate_game_simmer_memo <- memoise(simulate_game_simmer, cache = local_cache  )
@@ -59,7 +59,7 @@ simulate_game_simmer_memo <- memoise(simulate_game_simmer, cache = local_cache  
 
 # # future::plan(future::multicore)
 # 
-future::plan(future::multiprocess)
+future::plan(strategy = future::multisession)
 
 likert_harm <- tibble(
   entropy = c(1, 1.025, 1.05, 1.075, 1.1),  
@@ -328,7 +328,7 @@ splitLayout(
         numericInput(
           inputId = "total_steps_1",
           label = "$$Steps$$" %>% withMathJax(),
-          value = "3000",
+          value = "2000",
           step = 1
         ), 
         
@@ -1735,7 +1735,6 @@ observe({
 
   }
   
-  
 
   updateNumericInput(
     inputId = "prob_review_2",
@@ -1765,6 +1764,34 @@ observe({
 
   }
   
+  
+  updateNumericInput(
+    inputId = "prob_review_game",
+    value = input$process_fraction_review_game/100
+  )
+
+  updateNumericInput(
+    inputId = "prob_meta_review_game",
+    value = input$process_fraction_metareview_game/100
+  )
+  
+  harm_degree_game <- input$characteristics_kludges_harmful_game
+  
+
+  if(!is.null(harm_degree_game)){
+    
+    entropy_number_game <- likert_harm %>% 
+      filter(
+        description == harm_degree_game
+      ) %>% 
+      pull(entropy)
+    
+    updateNumericInput(
+      inputId = "entropy_factor_game",
+      value = entropy_number_game
+    )
+
+  }
   
     
   
@@ -2202,16 +2229,50 @@ splitLayout(
 ```
 
 
+```{r}
+
+  actionButton(
+    inputId = "solve_all",
+    label = "Solve All Games"
+  )
+
+
+```
+
+
+
 
 ```{r}
 
+update_input <- function(input, process_fraction_review_game, process_fraction_metareview_game, characteristics_kludges_harmful_game ){
 
 
-simulation_results <- eventReactive(eventExpr = input$solve , valueExpr = {
+  input$prob_review_game = process_fraction_review_game/100
+  input$prob_meta_review_game = process_fraction_metareview_game/100
 
+  harm_degree_game <- characteristics_kludges_harmful_game
+
+  if(!is.null(harm_degree_game)){
+    
+    entropy_number_game <- likert_harm %>% 
+      filter(
+        description == harm_degree_game
+      ) %>% 
+      pull(entropy)
+    
+    input$entropy_factor_game = entropy_number_game
+
+  }
   
-  browser()
+  input
   
+}
+
+
+
+simulate_core <- function(input, n_executions_game){
+  
+
   possible_strategy_dev <- tibble(
     strategy_dev = c(actions$Diligent, actions$Kludgy )
   )
@@ -2281,71 +2342,69 @@ simulation_results <- eventReactive(eventExpr = input$solve , valueExpr = {
   
 
   
-simulate_and_label <- function(round, values){
-
-  simulated <- simulate_game_simmer_memo(values, round)
-
-  print(round)
-
-  simulated
-
-}
-
-
-summarise_executions_to_payoff <- function(results){
-
-  results %>%
-    filter(
-      cur_stage == "Merge",
-      phase == "End"
-    ) %>%
-    group_by(
-      combination,
-      execution,
-      developer
-    ) %>%
-    summarise(
-      merges = n()
-    ) %>%
-    group_by(
-      developer,
-      combination
-    ) %>%
-    summarise(
-      merges = mean(merges)
+  simulate_and_label <- function(round, values){
+  
+    simulated <- simulate_game_simmer_memo(values, round)
+  
+    simulated
+  
+  }
+  
+  
+  summarise_executions_to_payoff <- function(results){
+  
+    results %>%
+      filter(
+        cur_stage == "Merge",
+        phase == "End"
+      ) %>%
+      group_by(
+        combination,
+        execution,
+        developer
+      ) %>%
+      summarise(
+        merges = n()
+      ) %>%
+      group_by(
+        developer,
+        combination
+      ) %>%
+      summarise(
+        merges = mean(merges)
+      )
+  
+  
+  }
+  
+  
+  simulate_executions <- function(values, n_executions, combination){
+  
+    result <- map(
+      .x = 1:n_executions,
+      .f = ~simulate_and_label(
+        round = .x,
+        values = values
+      )
     )
-
-
-}
-
-
-simulate_executions <- function(values, n_executions, combination){
-
-  result <- map(
-    .x = 1:n_executions,
-    .f = ~simulate_and_label(
-      round = .x,
-      values = values
-    )
-  )
-
-
-  print(combination)
-
-  final_result <- map2_df(
-    .x = result,
-    .y = 1:length(result),
-    .f = ~{.x$data %>%
-        mutate(
-          combination = combination,
-          execution = .y
-        )}
-  ) %>%
-    summarise_executions_to_payoff()
-
-  final_result
-
-}
+  
+    tibble(teste = 1)
+  
+    # final_result <- map2_df(
+    #   .x = result,
+    #   .y = 1:length(result),
+    #   .f = ~{.x$data %>%
+    #       mutate(
+    #         combination = combination,
+    #         execution = .y
+    #       )}
+    # ) %>%
+    #   summarise_executions_to_payoff()
+    # 
+    # final_result
+  
+    
+  }
 
   
   
@@ -2381,7 +2440,7 @@ simulate_executions <- function(values, n_executions, combination){
   )
 
 
-  n_game <- n_executions_game()
+  n_game <- n_executions_game
 
   tictoc::tic("simulate")
   
@@ -2394,32 +2453,126 @@ simulate_executions <- function(values, n_executions, combination){
     .options = furrr::furrr_options(seed = 222 )
   )
   
-  eqs_game <- solve_game(params = values_game, results = results_game)
+  # eqs_game <- solve_game(params = values_game, results = results_game)
+  # 
+  # eq_table_game <- eqs_game %>% 
+  #   eq_tables(
+  #     reduce.tables = FALSE,
+  #     combine = 0
+  #   )
+  # 
+  # eqs_tibble <- eq_table_game %>% 
+  #   map2_df(
+  #     .y = 1:length(.),
+  #     .f = function(.x, .y){
+  #       tibble(
+  #         eq = .y,
+  #         strategy_1 <- .x$complete_strategy_1,
+  #         strategy_2 <- .x$complete_strategy_2,
+  #         strategy_3 <- .x$complete_strategy_3
+  #       )
+  #     }
+  #   )  
+  # 
 
-  eq_table_game <- eqs_game %>% 
-    eq_tables(
-      reduce.tables = FALSE,
-      combine = 0
+  
+  
+  
+}
+
+
+simulation_results <- eventReactive(eventExpr = input$solve , valueExpr = {
+
+  simulate_core(input = input, n_executions_game = n_executions_game() )  
+
+})
+
+
+simulate_all <- eventReactive(eventExpr = input$solve_all , valueExpr = {
+
+  
+  tib_process_fraction_review_game <-  tibble(
+    process_fraction_review_game = c(0, 25, 50, 75, 100)
+  )
+  
+  tib_process_fraction_metareview_game <-  tibble(
+    process_fraction_metareview_game = c(0, 25, 50, 75, 100)
+  )
+  
+  tib_characteristics_kludges_harmful_game <- tibble(
+    characteristics_kludges_harmful_game = likert_harm$description,
+    order = likert_harm$entropy
+  )
+  
+  all_params_all <- crossing(
+    tib_process_fraction_review_game,
+    tib_process_fraction_metareview_game,
+    tib_characteristics_kludges_harmful_game
+  ) %>% 
+    arrange(
+      process_fraction_review_game,
+      process_fraction_metareview_game,
+      order
+    ) %>% 
+    mutate(
+      instance = row_number()
     )
   
-  eqs_tibble <- eq_table_game %>% 
-    map2_df(
-      .y = 1:length(.),
-      .f = function(.x, .y){
-        tibble(
-          eq = .y,
-          strategy_1 <- .x$complete_strategy_1,
-          strategy_2 <- .x$complete_strategy_2,
-          strategy_3 <- .x$complete_strategy_3
-        )
-      }
-    )  
+
+  files <- list.files(pattern = "[0-9]+.rds") %>% 
+    str_remove("\\.rds") %>% 
+    as.integer() %>% 
+    enframe() %>% 
+    rename(
+      instance = value
+    )
   
-  browser()
+  set.seed(123)
+
+  all_params <- all_params_all %>% 
+    anti_join(files, by = "instance") %>% 
+    sample_n(size = nrow(.))
+
+
+  for (i in 1:nrow(all_params)){
+    
+
+    info <- list()
+    
+    values <- map(
+      .x = names(input),
+      .f = ~{
+        info[[.x]] <- input[[.x]]   
+      }
+    )
+    
+    names(values) <- names(input)
+    
+    this_input <- update_input(
+      input = values, 
+      process_fraction_review_game = all_params$process_fraction_review_game[i],
+      process_fraction_metareview_game = all_params$process_fraction_metareview_game[i],
+      characteristics_kludges_harmful_game = all_params$characteristics_kludges_harmful_game[i]
+    )
+    
+    simulate_core(input = this_input, n_executions_game = n_executions_game() )    
+    
+    write_rds(all_params$instance[i], paste0( all_params$instance[i], ".rds"))
+    
+    
+  }
   
 
 })
-  
+
+
+```
+
+```{r}
+
+renderText(
+  simulate_all()
+)
 
 
 ```

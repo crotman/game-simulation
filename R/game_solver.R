@@ -286,7 +286,7 @@ solve_game <- function(params, results){
   eq <- game %>%
     game_solve()
 
-  browser()
+
 
   list(
     eq = eq
