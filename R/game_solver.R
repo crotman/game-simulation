@@ -286,10 +286,32 @@ solve_game <- function(params, results){
   eq <- game %>%
     game_solve()
 
+  eq_table_game <- eq %>%
+    eq_tables(
+      reduce.tables = FALSE,
+      combine = 0
+    )
+
+  saida  <- eq_table_game %>%
+    map2_df(
+      .y = 1:length(.),
+      .f = function(.x, .y){
+        tibble(
+          eq = .y,
+          strategy_1 <- .x$complete_strategy_1,
+          strategy_2 <- .x$complete_strategy_2,
+          strategy_3 <- .x$complete_strategy_3
+        )
+      }
+    )
+
+
+  saida_resultados <- get_outcomes(game)
 
 
   list(
-    eq = eq
+    eqs = saida,
+    resultados = saida_resultados
   )
 
 }
