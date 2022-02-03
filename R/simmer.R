@@ -5,10 +5,34 @@ library(tidyverse)
 
 simulate_game_simmer <- function(
   params,
-  n_execution
+  n_execution,
+  debug_mode = TRUE
 ){
 
 
+  debug_mode <- FALSE
+
+
+  necessary_attributes <- c(
+    "rework",
+    "review_kludge",
+    "first_review_kludge",
+    "kludge",
+    "first_kludge",
+    "to_be_reviewed",
+    "to_be_metareviewed",
+    "developer",
+    "reviewer",
+    "reviewed",
+    "metareviewer",
+    "stage"
+  )
+
+
+  necessary_global_attributes <- c(
+    "stage",
+    "developer"
+  )
 
 #### functions ####
 
@@ -108,7 +132,7 @@ simulate_game_simmer <- function(
   }
 
   add_resource_reduce <- function(a, b){
-    simmer::add_resource(.env = a, name = b)
+    simmer::add_resource(.env = a, name = as.character(b), preemptive = TRUE)
   }
 
   branch_review <- function(){
@@ -131,11 +155,41 @@ simulate_game_simmer <- function(
 
   set_attribute_and_global <- function(.trj, keys, values, mod = NULL, init = 0){
 
-    simmer::set_attribute(.trj = .trj, keys = keys, values = values, mod = mod, init = init) %>%
-      simmer::set_global(
-        keys = function(){paste0(simmer::get_name(env),"_", keys)},
-        values = function(){simmer::get_attribute(env, keys)}
-      )
+    if(is.function(values)){
+      debug_stage = FALSE
+    }else{
+      if (values %in% c(1,8)){
+        debug_stage = TRUE
+      }else{
+        debug_stage = FALSE
+      }
+    }
+
+
+    if(keys %in% necessary_attributes | debug_mode){
+      step <- simmer::set_attribute(.trj = .trj, keys = keys, values = values, mod = mod, init = init)
+
+
+      if(keys %in% necessary_global_attributes | debug_mode){
+        if(keys != "stage" | ((keys == "stage" & debug_stage) | debug_mode ) ){
+             simmer::set_global(
+               .trj = step,
+                keys = function(){
+                  paste0(simmer::get_name(env),"_", keys)
+                },
+                # values = function(){simmer::get_attribute(env, keys)}
+                values = values
+             )
+           }else{
+             step
+           }
+      }else{
+        step
+      }
+
+    }else{
+      .trj
+    }
   }
 
 
@@ -149,7 +203,7 @@ simulate_game_simmer <- function(
   }
 
   get_developer_id <- function(){
-    as.integer(stringr::str_sub(simmer::get_selected(env), start = 11))
+    as.integer(simmer::get_selected(env))
   }
 
   get_reviewer_id <- function(){
@@ -157,31 +211,31 @@ simulate_game_simmer <- function(
   }
 
   get_my_dev <- function(){
-    paste0("developer_", {simmer::get_attribute(env, 'developer')})
+    simmer::get_attribute(env, 'developer')
   }
 
   get_my_dev_or_any <- function(){
     my_dev <- get_my_dev()
-    if(my_dev == "developer_NA"){
-      paste0("developer_", 1:n_developers )
+    if(is.na(my_dev)){
+      as.character(1:n_developers)
     }else{
-      my_dev
+      as.character(my_dev)
     }
 
   }
 
   get_other_devs_on_review <- function(){
     current_dev <- simmer::get_attribute(env, 'developer')
-    devs <- (1:n_developers)[-current_dev]
-    paste0("developer_", devs)
+    devs <- as.character((1:n_developers)[-current_dev])
+    devs
   }
 
 
   get_other_devs_on_metareview <- function(){
     current_dev <- simmer::get_attribute(env, 'developer')
     current_rev <- simmer::get_attribute(env, 'reviewer')
-    devs <- (1:n_developers)[-c(current_dev, current_rev)]
-    paste0("developer_", devs)
+    devs <- as.character((1:n_developers)[-c(current_dev, current_rev)])
+    devs
   }
 
   set_time_to_develop <- function(){
@@ -321,41 +375,55 @@ simulate_game_simmer <- function(
   #### metareview traj ####
 
   metareview_traj <- simmer::trajectory("metareview_traj") %>%
-    simmer::select(get_other_devs_on_metareview, policy = "random" ) %>%
+    simmer::set_prioritization(c(1, 2, FALSE)) %>%
+    simmer::select(get_other_devs_on_metareview, policy = "first-available" ) %>%
     simmer::timeout(0.0001) %>%
     set_attribute_and_global(keys = "stage", values = get_stage_id(cur_stage = "MetaReview", cur_phase = "Start")) %>%
     set_attribute_and_global(keys = "metareviewer", values = get_developer_id ) %>%
     simmer::seize_selected(1) %>%
+    simmer::timeout(0.0005) %>%
     set_attribute_and_global(keys = "seized", values = 1) %>%
+    set_attribute_and_global(keys = "seized_who", values = get_developer_id) %>%
     simmer::timeout(set_time_to_metareview) %>%
     set_attribute_and_global(keys = "metareview_good", values = set_metareview) %>%
     set_attribute_and_global(keys = "stage", values = get_stage_id(cur_stage = "MetaReview", cur_phase = "End")) %>%
     simmer::release_selected(1) %>%
+    simmer::timeout(0.0005) %>%
+    set_attribute_and_global(keys = "seized", values = 0) %>%
     simmer::timeout(0.0001) %>%
-    set_attribute_and_global(keys = "seized", values = 0)
+    set_attribute_and_global(keys = "seized_who", values = 0) %>%
+    simmer::set_prioritization(c(0, 0, FALSE))
+
 
 
 #### review traj ####
   review_traj <- simmer::trajectory("review_traj") %>%
-    simmer::select(get_other_devs_on_review, policy = "random" ) %>%
+    simmer::set_prioritization(c(1, 2, FALSE)) %>%
+    simmer::select(get_other_devs_on_review, policy = "first-available" ) %>%
     set_attribute_and_global(keys = "reviewer", values = get_developer_id ) %>%
     simmer::timeout(0.0001) %>%
     set_attribute_and_global(keys = "stage", values = get_stage_id(cur_stage = "Review", cur_phase = "Start")) %>%
     simmer::seize_selected(1) %>%
+    simmer::timeout(0.0005) %>%
     set_attribute_and_global(keys = "seized", values = 1) %>%
+    set_attribute_and_global(keys = "seized_who", values = get_developer_id) %>%
     simmer::timeout(set_time_to_review) %>%
     simmer::release_selected(1) %>%
     set_attribute_and_global(keys = "review_kludge", values = set_review) %>%
     set_attribute_and_global(keys = "stage", values = get_stage_id(cur_stage = "Review", cur_phase = "End")) %>%
     simmer::timeout(0.0001) %>%
     set_attribute_and_global(keys = "seized", values = 0) %>%
+    simmer::timeout(0.0001) %>%
+    set_attribute_and_global(keys = "seized_who", values = 0) %>%
     set_first_kludge_review() %>%
     set_attribute_and_global(
       keys = "reviewed",
       mod = "+",
       init = 0,
       values = 1
-    )
+    ) %>%
+    simmer::set_prioritization(c(0, 0, FALSE))
+
 
 
 
@@ -382,10 +450,12 @@ simulate_game_simmer <- function(
       values = 0
     ) %>%
     simmer::select(get_my_dev_or_any, policy = "random" ) %>%
-    set_attribute_and_global(keys = "developer", values = get_developer_id ) %>%
     set_attribute_and_global(keys = "stage", values = get_stage_id(cur_stage = "Development", cur_phase = "Start")) %>%
+    set_attribute_and_global(keys = "developer", values = get_developer_id ) %>%
     simmer::seize_selected(1) %>%
+    simmer::timeout(0.0005) %>%
     set_attribute_and_global(keys = "seized", values = 1) %>%
+    set_attribute_and_global(keys = "seized_who", values = get_developer_id) %>%
     simmer::timeout(task = set_time_to_develop ) %>%
     set_attribute_and_global(keys = "kludge", values = set_kludge ) %>%
     set_attribute_and_global(keys = "review_kludge", values = -1 ) %>%
@@ -394,6 +464,8 @@ simulate_game_simmer <- function(
     simmer::timeout(0.0001) %>%
     set_attribute_and_global(keys = "seized", values = 0) %>%
     set_attribute_and_global(keys = "to_be_reviewed", values = set_to_be_reviewed) %>%
+    simmer::timeout(0.0001) %>%
+    set_attribute_and_global(keys = "seized_who", values = 0) %>%
     simmer::branch(
       option = branch_review,
       review_traj,
@@ -424,10 +496,12 @@ simulate_game_simmer <- function(
 
   env <- simmer::simmer("simulacao")
 
+  distr <- function() rexp(n = 1, rate = 1/params$lambda)
+
   env_run <- env %>%
     purrr::reduce(
     .init = .,
-    .x = stringr::str_glue("developer_{1:n_developers}"),
+    .x = 1:n_developers,
     .f = add_resource_reduce
     ) %>%
     # reduce(
@@ -436,16 +510,15 @@ simulate_game_simmer <- function(
     #   .f = simmer::add_resource_reduce
     # ) %>%
     simmer::add_generator(
-      name_prefix = "pullrequest",
+      name_prefix = "pr",
       trajectory = development_traj,
-      distribution = simmer::at( seq(from = 1, to = params$total_steps, by = 1/params$lambda  ))
+      distribution = simmer::from_to(0, stop_time = params$total_steps, dist = distr )
+      # distribution = simmer::at( 1  )
     ) %>%
     simmer::run(until = params$total_steps)
 
 
   monitored <- simmer::get_mon_attributes(env_run)
-
-
 
   entropy <- monitored  %>%
     dplyr::filter(
@@ -457,41 +530,65 @@ simulate_game_simmer <- function(
   data <- monitored %>%
     dplyr::filter(
       !key %in% ("entropy")
-    ) %>%
-    tidyr::separate(
-      col = key,
-      into = c("pullrequest", "field"),
-      extra = "merge"
-    ) %>%
-    tidyr::pivot_wider(
-      names_from = field,
-      values_from = value
-    ) %>%
-    dplyr::arrange(time) %>%
-    dplyr::group_by(pullrequest) %>%
-    tidyr::fill(
-      dplyr::everything(),
-      .direction = "down"
-    ) %>%
-    dplyr::ungroup() %>%
-    dplyr::left_join(
-      stages %>% dplyr::rename(cur_stage = name),
-      by = c("stage" = "id")
-    ) %>%
-    dplyr::mutate(
-      dplyr::across(
-        .cols = where(is.numeric) & !time,
-        .fns = as.integer
-      )
     )
 
-  rm(list = ls()[!(ls() %in% c("data", "entropy"))   ])
+
+  # data <- data %>%
+  #   mutate(
+  #     pullrequest = str_extract(string = key, pattern = "pullrequest[0-9]*"),
+  #     field = str_extract(string = key, pattern = "(?:_).*") %>% str_remove("_"),
+  #     .before = value
+  #   ) %>%
+  #   select(-key)
+  #
+  #
+  # data <- data %>%
+  #   tidyr::pivot_wider(
+  #     names_from = field,
+  #     values_from = value
+  #   )
+  #
+  #
+  # browser()
+  #
+  # data <- data %>%
+  #   dplyr::arrange(time) %>%
+  #   dplyr::group_by(pullrequest) %>%
+  #   tidyr::fill(
+  #     dplyr::everything(),
+  #     .direction = "down"
+  #   )
+  #
+  # data <- data %>%
+  #   dplyr::ungroup() %>%
+  #   dplyr::left_join(
+  #     stages %>% dplyr::rename(cur_stage = name),
+  #     by = c("stage" = "id")
+  #   )
+  #
+  # data <- data %>%
+  #   dplyr::mutate(
+  #     dplyr::across(
+  #       .cols = where(is.numeric) & !time,
+  #       .fns = as.integer
+  #     )
+  #   )
 
 
-  list(
-    data = data,
-    entropy = entropy
-  )
+  rm(list = ls()[!(ls() %in% c("data", "entropy", "debug_mode"))   ])
+
+
+
+  # if(!debug_mode){
+    output <- data
+  # }else{
+  #   output <- list(
+  #     data = data,
+  #     entropy = entropy
+  #   )
+  # }
+
+  output
 
 
 }

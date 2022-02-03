@@ -1,0 +1,484 @@
+---
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,warning = FALSE,message = FALSE  )
+```
+
+```{r}
+library(tidyverse)
+library(ggridges)
+library(here)
+theme_set(theme_minimal())
+
+```
+
+# Simple Parametrization 
+
+- No review
+
+- No metareview
+
+- No harm from kludges
+
+- New Developments Rate: 1
+
+Pure Strategiess:
+
+- Developer 1: Dev: Kludgy/Rev: Careful (does not matter)/Meta: Accurate (does not matter) 
+
+- Developer 2: Dev: Diligent/Rev: Careful (does not matter)/Meta: Accurate (does not matter) 
+
+- Developer 3: Dev: Diligent/Rev: Careful (does not matter)/Meta: Accurate (does not matter) 
+
+
+## 500 simulation steps 
+
+
+Estimated time for 30 repetitions of $8^3$ combinations: 12 min per parametrization, 25h (125 parametrizations)
+
+
+### 30 repetitions
+
+```{r}
+
+plot_abs <- function(results_pre, n, replications ){
+  
+  results <- map_df(
+    .x = 1:replications,
+    .f = ~{
+      chosen_executions <- sample(x = 1:30, size = n)    
+      results_pre %>%  filter(
+        execution %in% chosen_executions
+      ) %>% 
+        mutate(rep = .x)
+    }
+  )  
+  
+  ggplot(results,
+      aes(
+        y = dev,
+        x = merges
+      )
+     ) +
+    geom_density_ridges(
+      jittered_points = TRUE,
+      alpha = 0.2,
+      point_alpha = 0.7,
+      point_size = 0.7
+    ) +
+    facet_wrap(
+      ~rep,
+      ncol = 3
+    ) +
+    theme(
+      legend.position = "top" 
+    ) +
+    ggtitle(
+      str_glue("Merges by developer. {n} repetitions")
+    )
+}
+
+
+
+plot_diff <- function(results_pre, n, replications){
+  
+  results_diff <-  tibble(
+    diff_type = c(
+      "Dev_1 - Dev2",
+      "Dev_1 - Dev3",
+      "Dev_2 - Dev3"
+    ),
+    minuend_dev = c("Dev_1", "Dev_1", "Dev_2"),
+    subtrahend_dev = c("Dev_2", "Dev_3", "Dev_3")
+  ) %>% 
+    crossing(
+      results_pre %>% select(execution) %>%  distinct()
+    ) %>% 
+    inner_join(
+      results_pre %>% select(execution, dev, merges) %>% rename(minuend = merges),
+      by = c("execution", "minuend_dev" = "dev")
+    ) %>% 
+    inner_join(
+      results_pre %>% select(execution, dev, merges) %>% rename(subtrahend = merges),
+      by = c("execution", "subtrahend_dev" = "dev")
+    ) %>% 
+    mutate(
+      diff = minuend - subtrahend
+    )
+  
+  
+  
+  results <- map_df(
+    .x = 1:replications,
+    .f = ~{
+      chosen_executions <- sample(x = 1:30, size = n)    
+      results_diff %>%  filter(
+        execution %in% chosen_executions
+      ) %>% 
+        mutate(rep = .x)
+    }
+  )  
+  
+  ggplot(results,
+      aes(
+        y = diff_type,
+        x = diff
+      )
+     ) +
+    geom_density_ridges(
+      jittered_points = TRUE,
+      alpha = 0.2,
+      point_alpha = 0.7,
+      point_size = 0.7
+    ) +
+    facet_wrap(
+      ~rep,
+      ncol = 3
+    ) +
+    theme(
+      legend.position = "top" 
+    ) +
+    geom_vline(
+      xintercept = 0,
+      color = "darkred",
+      size = 1
+    ) +
+    ggtitle(
+      str_glue("Merges (Difference). {n} repetitions")
+    )
+    
+
+
+}
+
+
+
+```
+
+```{r}
+results_pre <- read_rds(here("case_1")) %>% 
+  ungroup() %>% 
+  mutate(
+    dev = str_glue("Dev_{developer}")
+  )
+```
+
+
+```{r}
+plot_abs(results_pre, n = 30, replications = 1 )
+
+```
+
+
+```{r}
+
+plot_diff(results_pre, n = 30, replications = 1   )
+
+```
+
+
+### Samples of 20 repetitions
+
+
+```{r}
+plot_abs(results_pre, n = 20, replications = 6 )
+
+```
+
+
+```{r}
+
+plot_diff(results_pre, n = 20, replications = 6   )
+
+```
+
+### Samples of 10 repetitions
+
+
+```{r}
+plot_abs(results_pre, n = 10, replications = 12 )
+
+```
+
+
+```{r}
+
+plot_diff(results_pre, n = 10, replications = 12   )
+
+```
+
+## 300 simulation steps 
+
+
+Estimated time for 30 repetitions of $8^3$ combinations: 8.5 min per parametrization, 18h (125 parametrizations)
+
+
+
+```{r}
+results_pre <- read_rds(here("case_2")) %>% 
+  ungroup() %>% 
+  mutate(
+    dev = str_glue("Dev_{developer}")
+  )
+```
+
+
+### 30 repetitions
+
+```{r}
+plot_abs(results_pre, n = 30, replications = 1 )
+
+```
+
+
+```{r}
+
+plot_diff(results_pre, n = 30, replications = 1   )
+
+```
+
+
+### Samples of 20 repetitions
+
+```{r}
+plot_abs(results_pre, n = 20, replications = 6 )
+
+```
+
+
+```{r}
+
+plot_diff(results_pre, n = 20, replications = 6   )
+
+```
+
+
+### Samples of 10 repetitions
+
+
+```{r}
+plot_abs(results_pre, n = 10, replications = 12 )
+
+```
+
+
+```{r}
+
+plot_diff(results_pre, n = 10, replications = 12   )
+
+```
+
+
+## 100 simulation steps
+
+Estimated time for 30 repetitions of $8^3$ combinations: 5.5 min per parametrization, 7.5hh (125 parametrizations)
+
+
+```{r}
+results_pre <- read_rds(here("case_3")) %>% 
+  ungroup() %>% 
+  mutate(
+    dev = str_glue("Dev_{developer}")
+  )
+```
+
+
+```{r}
+plot_abs(results_pre, n = 30, replications = 1 )
+
+```
+
+
+```{r}
+
+plot_diff(results_pre, n = 30, replications = 1   )
+
+```
+
+
+### Samples of 20 repetitions
+
+```{r}
+plot_abs(results_pre, n = 20, replications = 6 )
+
+```
+
+
+```{r}
+
+plot_diff(results_pre, n = 20, replications = 6   )
+
+```
+
+
+### Samples of 10 repetitions
+
+
+
+```{r}
+plot_abs(results_pre, n = 10, replications = 12 )
+
+```
+
+
+```{r}
+
+plot_diff(results_pre, n = 10, replications = 12   )
+
+```
+
+
+
+
+
+# Complex Parametrization 
+
+- 100% review
+
+- 100% metareview
+
+- No harm from kludges
+
+- New Developments Rate: 1
+
+Pure Strategiess:
+
+- Developer 1: Dev: Kludgy/Rev: Careful/Meta: Accurate
+
+- Developer 2: Dev: Diligent/Rev: Negligent/Meta: Accurate
+
+- Developer 3: Dev: Diligent/Rev: Careful/Meta: Inaccurate
+
+
+
+## 500 simulation steps 
+
+Estimated time for 30 repetitions of $8^3$ combinations: 15 min per parametrization, 31h (125 parametrizations)
+
+
+```{r}
+results_pre <- read_rds(here("case_4")) %>% 
+  ungroup() %>% 
+  mutate(
+    dev = str_glue("Dev_{developer}")
+  )
+```
+
+
+### 30 repetitions
+
+```{r}
+plot_abs(results_pre, n = 30, replications = 1 )
+
+```
+
+
+```{r}
+
+plot_diff(results_pre, n = 30, replications = 1   )
+
+```
+
+
+### Samples of 20 repetitions
+
+```{r}
+plot_abs(results_pre, n = 20, replications = 6 )
+
+```
+
+
+```{r}
+
+plot_diff(results_pre, n = 20, replications = 6   )
+
+```
+
+
+### Samples of 10 repetitions
+
+
+```{r}
+plot_abs(results_pre, n = 10, replications = 12 )
+
+```
+
+
+```{r}
+
+plot_diff(results_pre, n = 10, replications = 12   )
+
+```
+
+
+
+
+## 800 simulation steps 
+
+Estimated time for 30 repetitions of $8^3$ combinations: 16 min per parametrization, 33.5h (125 parametrizations)
+
+
+```{r}
+results_pre <- read_rds(here("case_5")) %>% 
+  ungroup() %>% 
+  mutate(
+    dev = str_glue("Dev_{developer}")
+  )
+```
+
+
+### 30 repetitions
+
+```{r}
+plot_abs(results_pre, n = 30, replications = 1 )
+
+```
+
+
+```{r}
+
+plot_diff(results_pre, n = 30, replications = 1   )
+
+```
+
+
+### Samples of 20 repetitions
+
+```{r}
+plot_abs(results_pre, n = 20, replications = 6 )
+
+```
+
+
+```{r}
+
+plot_diff(results_pre, n = 20, replications = 6   )
+
+```
+
+
+### Samples of 10 repetitions
+
+
+```{r}
+plot_abs(results_pre, n = 10, replications = 12 )
+
+```
+
+
+```{r}
+
+plot_diff(results_pre, n = 10, replications = 12   )
+
+```
+
+
+
+
+# Another Parametrization 
+
