@@ -1,0 +1,13 @@
+name: solved-games
+title: solved-games
+username:
+account: crotman
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 5475828
+bundleId: 5489660
+url: https://crotman.shinyapps.io/solved-games/
+when: 1642697488.45169
+lastSyncTime: 1642697488.45169
+asMultiple: FALSE
+asStatic: FALSE
