@@ -78,12 +78,59 @@ simulate_core <- function(input, n_executions_game, solve_game = FALSE, run_para
       p_dev = row_number()
     ) 
     
+  unique_games <- expand.grid(1:8, 1:8, 1:8) %>% 
+    rename(
+      dev_1 = 1,
+      dev_2 = 2,
+      dev_3 = 3
+    ) %>% 
+    mutate(
+      id = row_number()
+    ) %>%  
+    pivot_longer(
+      cols = -id,
+      values_to = "strategy",
+      names_to = "dev"
+    ) %>% 
+    group_by(
+      id, strategy
+    ) %>% 
+    summarise(
+      n = n()
+    ) %>% 
+    pivot_wider(
+      names_from = strategy,
+      values_from = n,
+      values_fill = 0
+    ) %>% 
+    group_by(
+      across(
+        .cols = matches("[0-9]"),
+      )
+    ) %>% 
+    nest() %>% 
+    ungroup() %>% 
+    mutate(
+      id_unique = row_number()
+    ) %>% 
+    unnest(data) %>% 
+    select(id, id_unique)
+
+  
+  first_games <- unique_games %>% 
+    arrange(
+      id_unique,
+      id
+    ) %>% 
+    group_by(
+      id_unique  
+    ) %>% 
+    slice_head(
+      n = 1
+    ) 
+    
 
   games <- expand.grid(1:8, 1:8, 1:8) %>% 
-    # filter(
-    #   Var1 <= Var2,
-    #   Var2 <= Var3
-    # ) %>% 
     rename(
       dev_1 = 1,
       dev_2 = 2,
@@ -116,6 +163,7 @@ simulate_core <- function(input, n_executions_game, solve_game = FALSE, run_para
     # ) %>%
     ungroup()
 
+  
 
   info <- list()
     
@@ -233,6 +281,8 @@ simulate_core <- function(input, n_executions_game, solve_game = FALSE, run_para
   
   simulate_executions <- function(values, n_executions, combination, return_results = FALSE, use_memo = TRUE, debug = FALSE){
   
+    browser()
+
     result <- map(
       .x = 1:n_executions,
       .f = ~simulate_and_label(
@@ -266,7 +316,7 @@ simulate_core <- function(input, n_executions_game, solve_game = FALSE, run_para
         )
       }
       
-
+      browser()
       final_result
     }else{
       tibble(teste = 1)
@@ -306,8 +356,8 @@ simulate_core <- function(input, n_executions_game, solve_game = FALSE, run_para
     }  
 
   
-  
 
+  
   
   values_game <- map(
     .x = min(games$game):max(games$game),
@@ -315,8 +365,20 @@ simulate_core <- function(input, n_executions_game, solve_game = FALSE, run_para
   )
 
 
+
+  values_game_firsts <- values_game %>% 
+    enframe() %>% 
+    filter(
+      name %in% first_games$id[1:3]
+    )
+  
+  values_game_all <- values_game
+  
+  values_game <- values_game_firsts$value
+  
+
   #MEXER
-  values_game <- values_game[sample(x = 1:length(values_game), size = 1)]
+  # values_game <- values_game[sample(x = 1:length(values_game), size = 1)]
 
   n_game <- n_executions_game
 
@@ -351,6 +413,8 @@ simulate_core <- function(input, n_executions_game, solve_game = FALSE, run_para
   }else{
     
 
+    tictoc::tic("solve")
+    
     results_game <- purrr::map2_dfr(
       .x = values_game,
       .y = 1:length(values_game),
@@ -364,6 +428,7 @@ simulate_core <- function(input, n_executions_game, solve_game = FALSE, run_para
     ) %>%  
       summarise_executions_to_payoff()
     
+    tictoc::toc()
 
 
 
@@ -372,7 +437,9 @@ simulate_core <- function(input, n_executions_game, solve_game = FALSE, run_para
   
 
   
-  browser()
+
+  
+  #solve
 
   if(solve_game){
     
@@ -2344,7 +2411,7 @@ splitLayout(
         numericInput(
           inputId = "n_executions_game",
           label = "$$executions$$"  %>% withMathJax(),
-          value = "30"
+          value = "10"
         ) 
     )
       
@@ -2655,11 +2722,11 @@ simulate_all <- eventReactive(eventExpr = input$solve_all , valueExpr = {
 
   
   tib_process_fraction_review_game <-  tibble(
-    process_fraction_review_game = c(0, 25, 50, 75, 100)
+    process_fraction_review_game = c(0, 50, 100)
   )
   
   tib_process_fraction_metareview_game <-  tibble(
-    process_fraction_metareview_game = c(0, 25, 50, 75, 100)
+    process_fraction_metareview_game = c(0, 50, 100)
   )
   
   tib_characteristics_kludges_harmful_game <- tibble(
@@ -2667,6 +2734,8 @@ simulate_all <- eventReactive(eventExpr = input$solve_all , valueExpr = {
     order = likert_harm$entropy
   )
   
+  
+
   all_params_all <- crossing(
     tib_process_fraction_review_game,
     tib_process_fraction_metareview_game,
@@ -2891,18 +2960,22 @@ observeEvent( input$solve_all_no_memo , {
   
 
   tib_process_fraction_review_game <-  tibble(
-    process_fraction_review_game = c(0, 25, 50, 75, 100)
+    process_fraction_review_game = c(0, 50, 100)
   )
   
   tib_process_fraction_metareview_game <-  tibble(
-    process_fraction_metareview_game = c(0, 25, 50, 75, 100)
+    process_fraction_metareview_game = c(0, 50, 100)
   )
+  
+  harm_degrees <- c("No", "Moderately", "A great deal")
   
   tib_characteristics_kludges_harmful_game <- tibble(
-    characteristics_kludges_harmful_game = likert_harm$description,
-    order = likert_harm$entropy
+    # characteristics_kludges_harmful_game = likert_harm$description,
+    characteristics_kludges_harmful_game = harm_degrees,
+    order = c(1, 1.05, 1.1)
   )
   
+
   all_params_all <- crossing(
     tib_process_fraction_review_game,
     tib_process_fraction_metareview_game,
@@ -2925,17 +2998,16 @@ observeEvent( input$solve_all_no_memo , {
     rename(
       instance = value
     )
-  
 
   all_params <- all_params_all %>% 
-    anti_join(files, by = "instance") %>% 
     sample_n(size = nrow(.)) %>% 
     #retirar
-    filter(
-      process_fraction_review_game == 0,
-      process_fraction_metareview_game == 0,
-      characteristics_kludges_harmful_game == "No"
-    )
+    # filter(
+    #   process_fraction_review_game == 0,
+    #   process_fraction_metareview_game == 0,
+    #   characteristics_kludges_harmful_game == "No"
+    # )
+    identity()
 
 
   #retirar
@@ -2967,7 +3039,7 @@ observeEvent( input$solve_all_no_memo , {
       input = this_input, 
       n_executions_game = n_executions_game(), 
       #paralelo
-      run_parallel = FALSE, 
+      run_parallel = TRUE, 
       use_memo = FALSE, 
       solve_game = TRUE 
     )
