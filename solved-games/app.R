@@ -12,8 +12,50 @@ library(tidyverse)
 library(ggiraph)
 library(reactable)
 
-eqs <- read_rds("data/eqs.rds")
-results <- read_rds("data/results.rds")
+
+instances <- read_rds("data2/instances")
+
+
+files <- list.files(path = "data2", pattern = "saida_final", full.names = TRUE) %>%
+    enframe() %>%
+    rowwise() %>%
+    mutate(
+        conteudo = list(read_rds(value))
+    ) %>%
+    mutate(
+        instance = str_extract(value, "[0-9]*$") %>%  as.integer()
+    ) %>%
+    rowwise() %>%
+    mutate(
+        results = list(conteudo$resultados),
+        eqs = list(conteudo$eqs),
+
+    )
+
+
+eqs <- files %>%
+    select(
+        instance,
+        eqs
+    ) %>%
+    unnest(eqs) %>%
+    left_join(
+        instances,
+        by = "instance"
+    )
+
+
+results <- files %>%
+    select(
+        instance,
+        results
+    ) %>%
+    unnest(results) %>%
+    left_join(
+        instances,
+        by = "instance"
+    )
+
 
 
 # Define UI for application that draws a histogram
@@ -83,13 +125,13 @@ server <- function(input, output) {
             ) +
             theme_minimal() +
             scale_x_continuous(
-                breaks = c(0, 25, 50, 75, 100),
-                minor_breaks = c(0, 25, 50, 75, 100),
+                breaks = c(0, 50, 100),
+                minor_breaks = c(0, 50, 100),
                 sec.axis = dup_axis()
             ) +
             scale_y_continuous(
-                breaks = c(0, 25, 50, 75, 100),
-                minor_breaks = c(0, 25, 50, 75, 100),
+                breaks = c(0, 50, 100),
+                minor_breaks = c(0, 50, 100),
                 sec.axis = dup_axis()
             ) +
             labs(
