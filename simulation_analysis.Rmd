@@ -1,0 +1,72 @@
+---
+title: "simulation analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library(tidyverse)
+library(DBI)
+
+knitr::opts_chunk$set(echo = TRUE)
+
+con_db <- dbConnect(RSQLite::SQLite(), "db/log.db")
+
+dbListTables(con_db)
+  
+
+
+
+
+```
+
+
+```{r}
+create <- "create index label_eqs on eqs(label)"
+dbExecute(con_db, create)
+create <- "create index i_eqs on eqs(i)"
+dbExecute(con_db, create)
+
+create <- "create index label_params on params(label)"
+dbExecute(con_db, create)
+create <- "create index i_params on params(i)"
+dbExecute(con_db, create)
+
+
+create <- "create index label_results on results(label)"
+dbExecute(con_db, create)
+create <- "create index i_results on results(i)"
+dbExecute(con_db, create)
+
+create <- "create index label_simulations on simulations(label)"
+dbExecute(con_db, create)
+create <- "create index i_simulations on simulations(i)"
+dbExecute(con_db, create)
+```
+
+
+```{r}
+eqs <- tbl(con_db, "eqs") %>% 
+  collect() 
+
+
+params <- tbl(con_db, "params") %>% 
+  collect()
+
+
+results <- tbl(con_db, "results") %>% 
+  collect()
+
+
+simulations <- tbl(con_db, "simulations") %>% 
+  collect() 
+
+
+
+```
+
+
+
+
+
+

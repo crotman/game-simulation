@@ -2,15 +2,20 @@ library(simmer)
 library(tidyverse)
 
 
-
 simulate_game_simmer <- function(
   params,
   n_execution,
-  debug_mode = TRUE
+  debug_mode = TRUE,
+  save_db = FALSE,
+  con_db = NULL,
+  label = NA,
+  i = NA
+
 ){
 
 
-  debug_mode <- FALSE
+
+  debug_mode <- TRUE
 
 
   necessary_attributes <- c(
@@ -532,6 +537,7 @@ simulate_game_simmer <- function(
       !key %in% ("entropy")
     )
 
+  # browser()
 
   # data <- data %>%
   #   mutate(

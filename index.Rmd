@@ -41,19 +41,35 @@ library(ggrepel)
 library(slider)
 library(memoise)
 library(gtree)
+library(DBI)
 
 source("R/create_enums.R", encoding = "UTF-8")
 source("R/game_simulation.R", encoding = "UTF-8")
 source("R/simmer.R", encoding = "UTF-8")
 source("R/game_solver.R", encoding = "UTF-8")
 
+con_db <- dbConnect(RSQLite::SQLite(), "db/log.db")
 
+cancel.onSessionEnded <- session$onSessionEnded(function() {
+    dbDisconnect(con_db)
+})
 
 local_cache <- cachem::cache_disk("data", max_size = Inf )
 
 
 
-simulate_core <- function(input, n_executions_game, solve_game = FALSE, run_parallel = TRUE, use_memo = TRUE){
+simulate_core <- function(
+  input, 
+  n_executions_game, 
+  solve_game = FALSE, 
+  run_parallel = TRUE, 
+  use_memo = TRUE,
+  save_db = FALSE,
+  con_db = NULL,
+  label = NA,
+  i = NA
+
+  ){
   
 
   possible_strategy_dev <- tibble(
@@ -186,14 +202,41 @@ simulate_core <- function(input, n_executions_game, solve_game = FALSE, run_para
   names(values_game) <- names_game
   
   
-
+  # browser()
   
-  simulate_and_label <- function(round, values, use_memo = TRUE, debug = FALSE){
+  simulate_and_label <- function(
+    round, 
+    values, 
+    use_memo = TRUE, 
+    debug = FALSE,
+    save_db = FALSE,
+    con_db = NULL,
+    label = NA,
+    i = NA
+    
+  ){
 
     if(use_memo){
-      simulated <- simulate_game_simmer_memo(values, round, debug = debug)  
+      simulated <- simulate_game_simmer_memo(
+        values, 
+        round, 
+        debug = debug,
+        save_db = save_db,
+        con_db = con_db,
+        label = label,
+        i = i
+        
+      )  
     }else{
-      simulated <- simulate_game_simmer(values, round, debug = debug)  
+      simulated <- simulate_game_simmer(
+        values, 
+        round, 
+        debug = debug,
+        save_db = save_db,
+        con_db = con_db,
+        label = label,
+        i = i
+      )  
     }
 
     simulated
@@ -201,7 +244,16 @@ simulate_core <- function(input, n_executions_game, solve_game = FALSE, run_para
   }
   
   
-  summarise_executions_to_payoff <- function(results, by_execution = TRUE){
+  
+  summarise_executions_to_payoff <- function(
+    results, 
+    by_execution = TRUE,
+    save_db = FALSE,
+    con_db = NULL,
+    label = NA,
+    i = NA
+    
+  ){
   
 
     stages <- tibble::tribble(
@@ -247,6 +299,27 @@ simulate_core <- function(input, n_executions_game, solve_game = FALSE, run_para
       )
     )
     
+    browser()
+    
+    # con_db = con_db,
+    # save_db = save_db,
+    # i = i,
+    # label = label,
+
+    if(save_db){
+
+      dbWriteTable(
+        conn = con_db, 
+        name = "simulations", 
+        value = data %>% 
+          mutate(
+            i = i,
+            label = label
+          ),
+        append = TRUE
+      )      
+
+    }
 
     output <- data %>%   
       filter(
@@ -279,15 +352,35 @@ simulate_core <- function(input, n_executions_game, solve_game = FALSE, run_para
   
   }
   
-  simulate_executions <- function(values, n_executions, combination, return_results = FALSE, use_memo = TRUE, debug = FALSE){
+  simulate_executions <- function(
+    values, 
+    n_executions, 
+    combination, 
+    return_results = FALSE, 
+    use_memo = TRUE, 
+    debug = FALSE,
+    save_db = FALSE,
+    con_db = NULL,
+    label = NA,
+    i = NA
+
+    
+    
+    ){
   
+    # browser()
 
     result <- map(
       .x = 1:n_executions,
       .f = ~simulate_and_label(
         round = .x,
         values = values,
-        use_memo = use_memo
+        use_memo = use_memo,
+        save_db = save_db,
+        con_db = con_db,
+        label = label,
+        i = i
+        
       )
     )
   
@@ -375,7 +468,8 @@ simulate_core <- function(input, n_executions_game, solve_game = FALSE, run_para
   
   values_game <- values_game_firsts$value
   
-
+  # browser()
+  
   #MEXER
   # values_game <- values_game[sample(x = 1:length(values_game), size = 1)]
 
@@ -384,6 +478,7 @@ simulate_core <- function(input, n_executions_game, solve_game = FALSE, run_para
 
   tictoc::tic("simulate")
   
+  browser()
 
   if(run_parallel){
 
@@ -395,6 +490,10 @@ simulate_core <- function(input, n_executions_game, solve_game = FALSE, run_para
         n_executions = n_game, 
         combination = .y, 
         return_results = solve_game, 
+        con_db = con_db,
+        save_db = save_db,
+        i = i,
+        label = label,
         use_memo = use_memo  ),
       progress = TRUE,
       .options = furrr::furrr_options(seed = 222 )
@@ -404,8 +503,13 @@ simulate_core <- function(input, n_executions_game, solve_game = FALSE, run_para
     
     
     results_game <- results_game %>% 
-      summarise_executions_to_payoff()
-    
+      summarise_executions_to_payoff(
+        con_db = con_db,
+        save_db = save_db,
+        i = i,
+        label = label
+      )
+      
     
   }else{
     
@@ -420,10 +524,20 @@ simulate_core <- function(input, n_executions_game, solve_game = FALSE, run_para
         n_executions = n_game, 
         combination = .y, 
         return_results = solve_game ,
-        use_memo = use_memo
+        use_memo = use_memo,
+        con_db = con_db,
+        save_db = save_db,
+        i = i,
+        label = label,
       ) 
     ) %>%  
-      summarise_executions_to_payoff()
+      summarise_executions_to_payoff(
+        con_db = con_db,
+        save_db = save_db,
+        i = i,
+        label = label,
+        
+      )
     
     tictoc::toc()
 
@@ -452,10 +566,27 @@ simulate_core <- function(input, n_executions_game, solve_game = FALSE, run_para
       merges
     )
   
+  # browser()
 
 
+  format_games_log <- function(values, i){
+    values %>% enframe() %>%  pivot_wider(names_from = "name", values_from = "value" ) %>% 
+      unnest() %>% 
+      mutate(
+        dev = 1:3,
+        combination = i
+      )
+  }
   
-  #solve
+  
+  value_games_formatado <- map2_dfr(
+    .x = values_game,
+    .y = first_games$id,
+    .f = format_games_log
+  )
+  
+    
+  #solve  
 
   if(solve_game){
     
@@ -466,6 +597,67 @@ simulate_core <- function(input, n_executions_game, solve_game = FALSE, run_para
   }else{
     saida = 0
   }
+  
+  browser()
+
+  
+  if(save_db){
+    
+    dbWriteTable(
+      conn = con_db, 
+      name = "eqs", 
+      value = saida$eqs %>% 
+        mutate(
+          i = i,
+          label = label
+        ),
+      
+      append = TRUE
+    )
+
+    dbWriteTable(
+      conn = con_db, 
+      name = "results", 
+      value = saida$resultados %>% 
+        mutate(
+          i = i,
+          label = label
+        ) %>% 
+        pivot_longer(
+          cols = starts_with("complete_strategy_") | starts_with("payoff_") | starts_with("util_"),
+          names_pattern = "(.*)_([0-9])$",
+          names_to = c(".value","dev")
+        ) %>% 
+        separate(
+          col = complete_strategy,
+          into = c("strategy_dev", "strategy_rev", "strategy_meta")
+        ) %>% 
+        mutate(
+          across(
+            .cols = c(dev, payoff),
+            .fns = as.integer
+          )
+        ) %>% 
+        select(-util)
+        ,
+      append = TRUE
+    )
+
+    dbWriteTable(
+      conn = con_db, 
+      name = "params", 
+      value = value_games_formatado %>% 
+        mutate(
+          i = i,
+          label = label
+        ),
+      append = TRUE
+    )
+
+  }
+
+  
+  browser()
 
   saida
 
@@ -3008,8 +3200,9 @@ observeEvent( input$solve_all_no_memo , {
       instance = row_number()
     )
   
+  label <- Sys.time()
   
-  browser()
+  # browser()
 
   files <- list.files(pattern = "[0-9]+aaaaaaa.rds") %>% 
     str_remove("\\.rds") %>% 
@@ -3022,18 +3215,18 @@ observeEvent( input$solve_all_no_memo , {
   all_params <- all_params_all %>% 
     sample_n(size = nrow(.)) %>% 
     #retirar
-    # filter(
-    #   process_fraction_review_game == 0,
-    #   process_fraction_metareview_game == 0,
-    #   characteristics_kludges_harmful_game == "No"
-    # )
+    filter(
+      process_fraction_review_game == 0,
+      process_fraction_metareview_game == 0,
+      characteristics_kludges_harmful_game == "No"
+    ) %>% 
     identity()
 
   saida <- list()
   
   
   #retirar
-  for (i in 21:nrow(all_params)){
+  for (i in 1:nrow(all_params)){
   # for (i in sample(x = 1:nrow(all_params), size = 1)){
     
 
@@ -3063,13 +3256,18 @@ observeEvent( input$solve_all_no_memo , {
       #paralelo
       run_parallel = TRUE, 
       use_memo = FALSE, 
-      solve_game = TRUE 
+      solve_game = TRUE,
+      save_db = TRUE,
+      con_db = con_db,
+      label = label,
+      i = i
     )
     
 
     tictoc::toc()
     
-
+    
+    
     saida[[i]] <- elemento    
     
     saida[[i]]$instance <-  all_params$instance[i]
