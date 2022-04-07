@@ -373,7 +373,6 @@ simulate_game_simmer <- function(
   )
 
 
-
   n_developers <- params$devs %>% nrow()
   n_reviewers <- params$revs %>% nrow()
 
@@ -454,7 +453,7 @@ simulate_game_simmer <- function(
       init = 0,
       values = 0
     ) %>%
-    simmer::select(get_my_dev_or_any, policy = "random" ) %>%
+    simmer::select(get_my_dev_or_any, policy = "shortest-queue" ) %>%
     set_attribute_and_global(keys = "stage", values = get_stage_id(cur_stage = "Development", cur_phase = "Start")) %>%
     set_attribute_and_global(keys = "developer", values = get_developer_id ) %>%
     simmer::seize_selected(1) %>%

@@ -585,7 +585,7 @@ simulate_core <- function(
     .f = format_games_log
   )
   
-    
+  browser()  
   #solve  
 
   if(solve_game){
@@ -621,7 +621,8 @@ simulate_core <- function(
       value = saida$resultados %>% 
         mutate(
           i = i,
-          label = label
+          label = label,
+          combination = row_number() 
         ) %>% 
         pivot_longer(
           cols = starts_with("complete_strategy_") | starts_with("payoff_") | starts_with("util_"),
@@ -2636,13 +2637,15 @@ splitLayout(
         numericInput(
           inputId = "prob_diligent_game",
           label = "$$P(K)|D$$" %>%  withMathJax(),
-          value = "0.1",
+          # value = "0.1",
+          value = "0",
           step = 0.01
         ) ,
         numericInput(
           inputId = "prob_kludgy_game",
           label = "$$P(K)|K$$" %>%  withMathJax(),
-          value = "0.9",
+          value = "1",
+          # value = "0.9",
           step = 0.01
         ) ,
         
@@ -2663,7 +2666,8 @@ splitLayout(
         numericInput(
           inputId = "sd_time_develop_game",
           label = withMathJax("$$\\sigma|(!R)$$"),
-          value = "2",
+          # value = "2",
+          value = "0",
           step = "1"
         ) ,
   
@@ -2677,7 +2681,8 @@ splitLayout(
         numericInput(
           inputId = "sd_time_rework_game",
           label = withMathJax("$$\\sigma|R$$"),
-          value = "5",
+          value = "0",
+          # value = "5",
           step = "1"
         ) 
     )
@@ -2703,7 +2708,8 @@ splitLayout(
         numericInput(
           inputId = "sd_time_review_game",
           label = "$$\\sigma$$",
-          value = "0.2",
+          # value = "0.2",
+          value = "0",
           step = "1"
         ) ,
       
@@ -2819,7 +2825,8 @@ splitLayout(
         numericInput(
           inputId = "sd_time_meta_review_game",
           label = "$$\\sigma$$"  %>%  withMathJax(),
-          value = "0.2",
+          # value = "0.2",
+          value = "0",
           step = "0.1"
         ) 
   
@@ -3224,7 +3231,7 @@ observeEvent( input$solve_all_no_memo , {
 
   saida <- list()
   
-  
+  browser()
   #retirar
   for (i in 1:nrow(all_params)){
   # for (i in sample(x = 1:nrow(all_params), size = 1)){
@@ -3254,7 +3261,7 @@ observeEvent( input$solve_all_no_memo , {
       input = this_input, 
       n_executions_game = n_executions_game(), 
       #paralelo
-      run_parallel = TRUE, 
+      run_parallel = FALSE, 
       use_memo = FALSE, 
       solve_game = TRUE,
       save_db = TRUE,

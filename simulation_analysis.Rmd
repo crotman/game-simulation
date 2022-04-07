@@ -59,6 +59,7 @@ results <- tbl(con_db, "results") %>%
 
 
 simulations <- tbl(con_db, "simulations") %>% 
+  head(1000) %>% 
   collect() 
 
 
@@ -67,6 +68,122 @@ simulations <- tbl(con_db, "simulations") %>%
 
 
 
+```{r}
 
+
+results %>% 
+  group_by(
+    dev,
+    strategy_dev
+  ) %>% 
+  summarise(
+    payoff = mean(payoff)
+  )
+
+
+results %>% 
+  ggplot() +
+  geom_col(
+    aes(
+      x = dev,
+      y = payoff
+    )
+  ) +
+  facet_grid(
+    ~strategy_dev
+  )
+
+
+```
+
+```{r}
+
+
+param_strategy_dev <- params %>% 
+  select(
+    dev,
+    strategy_dev,
+    combination
+  )
+
+
+param_tres_kludges <- params %>% 
+  select(
+    dev,
+    strategy_dev,
+    combination
+  ) %>% 
+  group_by(
+    combination
+  ) %>% 
+  mutate(
+    n_kludges = sum(strategy_dev == "Kludgy")
+  ) %>% 
+  ungroup() %>% 
+  filter(
+    n_kludges == 3
+  ) %>% 
+  filter(
+    combination == min(combination)
+  ) 
+
+
+execution_1 <- tbl(con_db, "simulations") %>% 
+  filter(
+    execution == 1
+  ) %>% 
+  collect()
+
+
+simulations_3_kludges <- execution_1 %>% 
+  inner_join(
+    param_tres_kludges,
+    by = c(
+      "developer" = "dev",
+      "combination"
+    )
+  )
+  
+  
+
+n_merges <-  simulations_3_kludges %>% 
+  filter(
+    phase == "End" & cur_stage == "Merge"
+  ) %>% 
+  group_by(developer) %>% 
+  summarise(
+    n = n()
+  )
+  
+  
+
+
+```
+```{r}
+
+chosen <- params %>%  filter(
+  combination == 293
+) %>% 
+  select(
+    strategy_dev,
+    strategy_meta,
+    strategy_rev
+  )
+
+
+results %>% 
+  filter(
+   strategy_dev == "Kludgy" ,
+   strategy_meta == "Accurate",
+   strategy_rev == "Careful"
+  ) %>% 
+  view()
+  
+
+
+
+
+
+```
 
 
