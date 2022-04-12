@@ -1,9 +1,7 @@
 library(gtree)
 
 
-
-solve_game <- function(params, results){
-
+prepare_strategies_to_solve <-  function(params){
 
   strategies <- purrr::map2_df(
     .x = params,
@@ -23,6 +21,20 @@ solve_game <- function(params, results){
       strategy_meta,
       remove = FALSE
     )
+
+}
+
+
+prepare_and_solve_game <- function(params, results){
+
+  strategies <- prepare_strategies_to_solve(params)
+
+  solve_game(strategies, results)
+
+}
+
+
+solve_game <- function(strategies, results){
 
 
 
@@ -80,94 +92,6 @@ solve_game <- function(params, results){
   )
 
 
-  # eval(parse(text = paste0('calculate_payoff <- function(player,  ...){
-  #
-  #
-  #   dot_args <- list(...)
-  #
-  #
-  #   ',
-  #
-  #   strategy_declaration,
-  #
-  #   "\n",
-  #
-  #   results_declaration,
-  #
-  #   '
-  #
-  # calculate_payoff_inside <-  function(params, strategies, results){
-  #
-  #   cur_params <- params %>%
-  #     dplyr::mutate(
-  #       dev = stringr::str_extract(name, pattern = "[0-9]*$") %>%  as.integer()
-  #     )
-  #
-  #
-  #   current_combination <- strategies  %>%
-  #     dplyr::inner_join(
-  #       cur_params,
-  #       by = c("dev", "complete_strategy" = "value")
-  #     ) %>%
-  #     dplyr::group_by(
-  #       combination
-  #     ) %>%
-  #     dplyr::filter(
-  #       dplyr::n() == 3
-  #     ) %>%
-  #     dplyr::pull(combination) %>%
-  #     dplyr::first()
-  #
-  #
-  #   if(length(current_combination) > 0){
-  #
-  #     payoff <- results %>%
-  #       dplyr::filter(
-  #         combination == current_combination,
-  #         developer == player
-  #       ) %>%
-  #       dplyr::pull(merges) %>%
-  #       first()
-  #
-  #     output <- payoff
-  #
-  #   }else{
-  #     output <- 0
-  #   }
-  #
-  # }
-  #
-  #
-  # output <- dot_args %>%
-  #   tibble::enframe() %>%
-  #   tidyr::unnest(value) %>%
-  #   dplyr::group_by(
-  #     name
-  #   ) %>%
-  #   dplyr::mutate(
-  #     instance = dplyr::row_number()
-  #   ) %>%
-  #   dplyr::ungroup() %>%
-  #   dplyr::group_by(
-  #     instance
-  #   ) %>%
-  #   tidyr::nest() %>%
-  #   dplyr::rowwise() %>%
-  #   dplyr::mutate(
-  #     payoff = calculate_payoff_inside(params = data, strategies = strategies, results = results)
-  #   ) %>%
-  #   tidyr::replace_na(
-  #     list(payoff = 0)
-  #   ) %>%
-  #   pull(payoff)
-  #
-  #
-  # output
-  #
-  #
-  # }')))
-  #
-
 
   calculate_payoff <<- function(player,  ...){
 
@@ -176,6 +100,7 @@ solve_game <- function(params, results){
 
 
     calculate_payoff_inside <-  function(params, strategies, results){
+
 
       cur_params <- params %>%
         dplyr::mutate(
@@ -219,6 +144,7 @@ solve_game <- function(params, results){
       }else
           0
       }
+
 
 
     output <- dot_args %>%
@@ -265,10 +191,6 @@ solve_game <- function(params, results){
                          .f = ~as.formula("payoff_{.x} ~ calculate_payoff(player = {.x}, {params_devs} )" %>%  str_glue() %>%  as.character() ),
                        )
 
-                       # compute=list(
-                       #   as.formula("payoff_1 ~ calculate_payoff(player = 1, testimonial_1 = testimonial_1, testimonial_2 = testimonial_2)"),
-                       #   as.formula("payoff_2 ~ calculate_payoff(player = 2, testimonial_1 = testimonial_1, testimonial_2 = testimonial_2)")
-                       # )
                     ))
 
 
@@ -305,9 +227,7 @@ solve_game <- function(params, results){
       }
     )
 
-
   saida_resultados <- get_outcomes(game)
-
 
   list(
     eqs = saida,

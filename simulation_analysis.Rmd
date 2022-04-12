@@ -59,7 +59,6 @@ results <- tbl(con_db, "results") %>%
 
 
 simulations <- tbl(con_db, "simulations") %>% 
-  head(1000) %>% 
   collect() 
 
 
@@ -71,7 +70,7 @@ simulations <- tbl(con_db, "simulations") %>%
 ```{r}
 
 
-results %>% 
+means <-  results %>% 
   group_by(
     dev,
     strategy_dev
@@ -81,7 +80,7 @@ results %>%
   )
 
 
-results %>% 
+means %>% 
   ggplot() +
   geom_col(
     aes(
@@ -95,6 +94,41 @@ results %>%
 
 
 ```
+
+
+
+
+```{r}
+
+
+results %>% 
+  ggplot(
+    aes(
+      y = payoff,
+      x = dev,
+    )
+  ) +
+  geom_violin(
+    aes(
+      group = dev
+    )
+  ) +
+  facet_grid(
+    strategy_dev~.
+  ) +
+  geom_point(
+    data = means,
+    size = 4
+  )
+  
+  
+
+
+```
+
+
+
+
 
 ```{r}
 
@@ -122,68 +156,237 @@ param_tres_kludges <- params %>%
   ungroup() %>% 
   filter(
     n_kludges == 3
-  ) %>% 
-  filter(
-    combination == min(combination)
   ) 
 
 
-execution_1 <- tbl(con_db, "simulations") %>% 
+results_tres_kludges <- results %>% 
   filter(
-    execution == 1
-  ) %>% 
-  collect()
-
-
-simulations_3_kludges <- execution_1 %>% 
-  inner_join(
-    param_tres_kludges,
-    by = c(
-      "developer" = "dev",
-      "combination"
-    )
+    combination %in% param_tres_kludges$combination
   )
-  
-  
 
-n_merges <-  simulations_3_kludges %>% 
-  filter(
-    phase == "End" & cur_stage == "Merge"
+
+
+means <-  results_tres_kludges %>% 
+  group_by(
+    dev,
+    strategy_dev
   ) %>% 
-  group_by(developer) %>% 
   summarise(
-    n = n()
+    payoff = mean(payoff)
+  )
+
+
+
+results_tres_kludges %>% 
+  ggplot(
+    aes(
+      y = payoff,
+      x = dev,
+    )
+  ) +
+  geom_violin(
+    aes(
+      group = dev
+    )
+  ) +
+  facet_grid(
+    strategy_dev~.
+  ) +
+  geom_point(
+    data = means,
+    size = 4
   )
   
-  
+
+
+```
+
+
+
+```{r}
+
+results_less_kludge <- results %>% 
+  filter(
+    dev == 3
+  ) %>% 
+  slice_min(
+    order_by = payoff
+  )
+
+
+results_more_kludge <- results %>% 
+  filter(
+    dev == 3
+  ) %>% 
+  slice_max(
+    order_by = payoff
+  )
+
 
 
 ```
 ```{r}
 
-chosen <- params %>%  filter(
-  combination == 293
-) %>% 
-  select(
-    strategy_dev,
-    strategy_meta,
-    strategy_rev
+more <- 366
+
+less <- 103
+
+
+params_more <- params %>% 
+  filter(
+    combination == more
+  ) %>% 
+  mutate(
+    across(
+      .cols = everything(),
+      .fns = as.character
+    )
+  ) %>% 
+  pivot_longer(
+    cols = everything(),
+    names_to = "param",
+    values_to = "value"
   )
+
+
+
+
+params_less <- params %>% 
+  filter(
+    combination == less
+  ) %>% 
+  mutate(
+    across(
+      .cols = everything(),
+      .fns = as.character
+    )
+  ) %>% 
+  pivot_longer(
+    cols = everything(),
+    names_to = "param",
+    values_to = "value"
+  )
+
+
+
+comparison <- bind_cols(params_less, params_more)
+
+
+```
+
+
+```{r}
+
+
+one_params <- params %>% 
+  filter(
+    combination == 101
+  ) %>% 
+  select(
+    dev,
+    strategy_dev
+  ) %>% 
+  view()
 
 
 results %>% 
   filter(
-   strategy_dev == "Kludgy" ,
-   strategy_meta == "Accurate",
-   strategy_rev == "Careful"
+    combination == 101
   ) %>% 
   view()
+
+one_simulation <- simulations %>% 
+  filter(
+    combination == 101,
+    replication == 1,
+    execution == 1
+  ) 
+  
+  
+starts <- one_simulation %>%    
+  group_by(
+    pullrequest
+  ) %>% 
+  slice_min(
+    order_by = time,
+    n = 1
+  )
+
+
+ends <- one_simulation %>%    
+  filter(
+    phase == "End",
+    cur_stage == "Development"
+  ) %>% 
+  group_by(
+    pullrequest
+  ) %>% 
+  slice_max(
+    order_by = time,
+    n = 1
+  ) %>% 
+  ungroup()
+
+ends %>% 
+  group_by(
+    developer
+  ) %>% 
+  summarise(
+    n = n()
+  ) %>% 
+  view()
+
+
+starts_rename <-  starts %>% 
+  select(
+    time_start = time,
+    pullrequest,
+    developer
+  ) 
+
+ends_rename <-  ends %>% 
+  select(
+    time_end = time,
+    pullrequest,
+    developer
+  ) 
+  
+  
+duration <- starts_rename %>% 
+  full_join(
+    ends_rename,
+    by = c("pullrequest")
+  )
+
+
+
+cumul_starts <- starts %>% 
+  select(
+    developer,
+    time,
+    i
+  ) %>% 
+  ungroup() %>% 
+  pivot_wider(
+    names_from = developer,
+    values_from = i,
+    values_fill = 0
+  ) %>% 
+  mutate(
+    across(
+      .cols = matches("[0-9]"),
+      .fns = cumsum 
+    )
+  )  %>% 
+  view()
+
   
 
 
 
 
 
-```
 
+
+```
 

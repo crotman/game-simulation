@@ -85,6 +85,7 @@ simulate_core <- function(
   )
 
   #retirar
+  #no meta review, no review
   possible_devs <- crossing(
     possible_strategy_dev,
     possible_strategy_rev,
@@ -94,6 +95,8 @@ simulate_core <- function(
       p_dev = row_number()
     ) 
     
+  browser()
+  
   unique_games <- expand.grid(1:8, 1:8, 1:8) %>% 
     rename(
       dev_1 = 1,
@@ -368,6 +371,7 @@ simulate_core <- function(
     
     ){
   
+    
     # browser()
 
     result <- map(
@@ -479,7 +483,14 @@ simulate_core <- function(
   tictoc::tic("simulate")
   
   browser()
+  
+  
+  
+  
 
+  
+  
+  
   if(run_parallel){
 
     results_game <- furrr::future_map2_dfr(
@@ -548,21 +559,56 @@ simulate_core <- function(
   
   
   
+  browser()
 
-
-  results_game_final <- results_game %>% 
-    inner_join(
-      first_games %>%  rename(id_run = id),
-      by = c("combination" = "id_run")
+  games_for_results_final <- read_rds("games") %>% 
+    group_by(
+      game,
+      strategy_dev,
+      strategy_meta,
+      strategy_rev
     ) %>% 
+    mutate(
+      n_strategy = row_number()
+    ) %>% 
+    ungroup() %>% 
+    mutate(
+      dev = str_extract(dev, pattern = "[0-9]+") %>%  as.integer()
+    )
+  
+  results_run <- results_game %>% 
+    inner_join(
+      games_for_results_final,
+      by = c("developer" = "dev", "combination" = "game")
+    )
+    
+  
+  
+  results_game_final <- first_games %>%  
+    rename(id_run = id) %>% 
     inner_join(
       unique_games %>%  rename(id_receive = id),
       by = c("id_unique")
     ) %>% 
+    left_join(
+      games_for_results_final,
+      by = c("id_receive" = "game")
+    ) %>% 
+    left_join(
+      results_run,
+      by = c(
+        "id_run" = "combination",
+        "strategy_dev",
+        "strategy_rev",
+        "strategy_meta",
+        "n_strategy"
+      )
+    ) %>% 
+    ungroup() %>% 
     select(
       combination = id_receive,
       execution,
-      developer,
+      developer = dev,
       merges
     )
   
@@ -590,7 +636,7 @@ simulate_core <- function(
 
   if(solve_game){
     
-    eqs_game <- solve_game(params = values_game_all, results = results_game_final)
+    eqs_game <- prepare_and_solve_game(params = values_game_all, results = results_game_final)
 
     saida <- eqs_game
     
@@ -3261,7 +3307,7 @@ observeEvent( input$solve_all_no_memo , {
       input = this_input, 
       n_executions_game = n_executions_game(), 
       #paralelo
-      run_parallel = FALSE, 
+      run_parallel = TRUE, 
       use_memo = FALSE, 
       solve_game = TRUE,
       save_db = TRUE,
