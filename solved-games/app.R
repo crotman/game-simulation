@@ -13,6 +13,9 @@ library(shiny)
 library(tidyverse)
 library(ggiraph)
 library(reactable)
+library(DBI)
+
+con_db <- dbConnect(RSQLite::SQLite(),"db/log.db" )
 
 
 instances <- read_rds("data2/instances")
@@ -35,7 +38,7 @@ files <- list.files(path = "data2", pattern = "saida_final", full.names = TRUE) 
     )
 
 
-eqs <- files %>%
+eqs_old <- files %>%
     select(
         instance,
         eqs
@@ -47,7 +50,99 @@ eqs <- files %>%
     )
 
 
-results <- files %>%
+params_db  <- tbl(con_db, "params") %>%  collect()
+
+params_label_i <- params_db %>% select(
+    -c( dev, strategy_dev, strategy_rev, strategy_meta, combination)
+) %>%
+    distinct()
+
+
+eqs <- tbl(con_db, "eqs") %>%  collect() %>%
+    inner_join(
+        params_label_i,
+        by = c("label", "i")
+    ) %>%
+    separate(
+        col = complete_strategy_1,
+        into = c("strategy_dev_1", "strategy_rev_1", "strategy_meta_1")
+    ) %>%
+    separate(
+        col = complete_strategy_2,
+        into = c("strategy_dev_2", "strategy_rev_2", "strategy_meta_2")
+    ) %>%
+    separate(
+        col = complete_strategy_3,
+        into = c("strategy_dev_3", "strategy_rev_3", "strategy_meta_3")
+    ) %>%
+    mutate(
+        across(
+            starts_with("strategy_rev"),
+            .fns = ~if_else(prob_review == 0, "NoReview", .x )
+        )
+    ) %>%
+    mutate(
+        across(
+            starts_with("strategy_meta"),
+            .fns = ~if_else(prob_review == 0 | prob_meta_review == 0, "NoMetaReview", .x )
+        )
+    ) %>%
+    select(-eq) %>%
+    distinct() %>%
+    mutate(
+        instance = label * 1000 + i
+    ) %>%
+    group_by(
+        instance
+    ) %>%
+    mutate(
+        eq = row_number()
+    ) %>%
+    ungroup() %>%
+    unite(
+        col = "complete_strategy_1",
+        strategy_dev_1,
+        strategy_rev_1,
+        strategy_meta_1,
+        sep = "_"
+    ) %>%
+    unite(
+        col = "complete_strategy_2",
+        strategy_dev_2,
+        strategy_rev_2,
+        strategy_meta_2,
+        sep = "_"
+    ) %>%
+    unite(
+        col = "complete_strategy_3",
+        strategy_dev_3,
+        strategy_rev_3,
+        strategy_meta_3,
+        sep = "_"
+    ) %>%
+    mutate(
+        process_fraction_review_game = prob_review * 100
+    ) %>%
+    mutate(
+        process_fraction_metareview_game = prob_meta_review * 100
+    ) %>%
+    mutate(
+        characteristics_kludges_harmful_game = case_when(
+            entropy_factor == 1 ~ "No",
+            entropy_factor == 1.05 ~ "Moderately",
+            entropy_factor == 1.1 ~ "A great deal",
+        )
+    ) %>%
+    mutate(
+        characteristics_kludges_harmful_game = fct_reorder(.f = characteristics_kludges_harmful_game, .x = entropy_factor )
+    ) %>%
+    mutate(
+        order = entropy_factor
+    )
+
+
+
+results_old <- files %>%
     select(
         instance,
         results
@@ -56,6 +151,14 @@ results <- files %>%
     left_join(
         instances,
         by = "instance"
+    )
+
+
+
+results <- tbl(con_db, "results") %>%
+    collect() %>%
+    mutate(
+        instance = label * 1000 + i
     )
 
 
@@ -70,6 +173,14 @@ ui <- fluidPage(
     fluidPage(
         # Show a plot of the generated distribution
         verticalLayout(
+
+            radioButtons(
+                inputId = "label",
+                label = "Case",
+                choiceNames = labels$name,
+                choiceValues = labels$label
+            ),
+
             girafeOutput(
                 outputId = "main"
             ),
@@ -83,30 +194,39 @@ ui <- fluidPage(
 server <- function(input, output) {
 
 
-    output$main <- renderGirafe({
-
-        games <- eqs %>%
+    games <- reactive(
+        eqs %>%
+            filter(
+                label == input$label
+            ) %>%
             group_by(
                 process_fraction_review_game,
                 process_fraction_metareview_game,
                 characteristics_kludges_harmful_game,
-                order
+                order,
+                instance,
+                i
             ) %>%
             summarise(
-                n = n(),
-                instance = mean(instance)
+                n = n()
             ) %>%
             mutate(
                 neg_order = -1*order,
                 characteristics_kludges_harmful_game = fct_reorder(.f = characteristics_kludges_harmful_game, .x = neg_order, .desc = TRUE )
             )
+    )
 
-        grafico <- ggplot(games) +
+
+
+    output$main <- renderGirafe({
+
+
+        grafico <- ggplot(games()) +
             geom_tile_interactive(
                 aes(
                     y = process_fraction_review_game,
                     x = process_fraction_metareview_game,
-                    data_id = instance
+                    data_id = i
                 ) ,
                 color = "white",
                 fill = "darkgreen",
@@ -141,14 +261,13 @@ server <- function(input, output) {
                 x = "% Metareview"
             )
 
-        girafe(ggobj = grafico, width_svg = 20, height_svg = 5, options = list(opts_selection(selected = "50", type = "single")))
+        girafe(ggobj = grafico, width_svg = 20, height_svg = 5, options = list(opts_selection(selected = "1", type = "single")))
 
 
     })
 
 
     output$eqs <- renderReactable({
-
 
         eqs_selected <- eqs %>%
             filter(
@@ -165,59 +284,30 @@ server <- function(input, output) {
     })
 
 
+
+    results_selected <- reactive({
+
+
+
+
+    })
+
+
     output$results <- renderReactable({
 
 
-        print(input$main_selected)
-
-        eqs_join <- eqs %>%
+        eqs_selected <- eqs %>%
             filter(
-                instance == input$main_selected
-            ) %>%
-            select(starts_with("complete_"), instance) %>%
-            mutate(
-                eq = "YES"
-            )
-
-
-        results_selected <- results %>%
-            filter(
-                instance == input$main_selected
+                label == input$label,
+                i == input$main_selected
             ) %>%
             select(
-                starts_with("complete_") | starts_with("payoff_")
-            ) %>%
-            mutate(
-                total_payoff = payoff_1 + payoff_2 + payoff_3
-            ) %>%
-            left_join(
-                eqs_join,
-                by = c("complete_strategy_1", "complete_strategy_2", "complete_strategy_3")
-            ) %>%
-            select(-instance) %>%
-            filter(
-                eq == "YES" | !input$only_eq
-            ) %>%
-            separate(
-                col = "complete_strategy_1",
-                into = c("Dev_1", "Review_1", "Meta_1"),
-                sep = "_"
-            ) %>%
-            separate(
-                col = "complete_strategy_2",
-                into = c("Dev_2", "Review_2", "Meta_2"),
-                sep = "_"
-            ) %>%
-            separate(
-                col = "complete_strategy_3",
-                into = c("Dev_3", "Review_3", "Meta_3"),
-                sep = "_"
+                starts_with("complete_strategy")
             )
-
 
 
         reactable(
-            results_selected,
+            eqs_selected,
             defaultPageSize = 600
         )
 
