@@ -5,7 +5,7 @@ library(tidyverse)
 simulate_game_simmer <- function(
   params,
   n_execution,
-  debug_mode = TRUE,
+  debug_mode = FALSE,
   save_db = FALSE,
   con_db = NULL,
   label = NA,
@@ -15,7 +15,7 @@ simulate_game_simmer <- function(
 
 
 
-  debug_mode <- TRUE
+  debug_mode <- FALSE
 
 
   necessary_attributes <- c(

@@ -27,9 +27,19 @@ prepare_strategies_to_solve <-  function(params){
 
 prepare_and_solve_game <- function(params, results){
 
+
+  results_grouped <- results %>%
+    group_by(
+      combination,
+      developer
+    ) %>%
+    summarise(
+      merges = mean(merges)
+    )
+
   strategies <- prepare_strategies_to_solve(params)
 
-  solve_game(strategies, results)
+  solve_game(strategies, results_grouped)
 
 }
 
@@ -125,6 +135,7 @@ solve_game <- function(strategies, results){
 
       if(length(current_combination) > 0){
 
+
         payoff <- results %>%
           dplyr::filter(
             combination == current_combination,
@@ -208,24 +219,34 @@ solve_game <- function(strategies, results){
   eq <- game %>%
     game_solve()
 
-  eq_table_game <- eq %>%
-    eq_tables(
-      reduce.tables = FALSE,
-      combine = 0
-    )
 
-  saida  <- eq_table_game %>%
-    map2_df(
-      .y = 1:length(.),
-      .f = function(.x, .y){
-        tibble(
-          eq = .y,
-          strategy_1 <- .x$complete_strategy_1,
-          strategy_2 <- .x$complete_strategy_2,
-          strategy_3 <- .x$complete_strategy_3
-        )
-      }
-    )
+
+  if (eq$eq.li %>% length() > 2){
+
+    eq_table_game <- eq %>%
+      eq_tables(
+        reduce.tables = FALSE,
+        combine = 0
+      )
+
+    saida  <- eq_table_game %>%
+      map2_df(
+        .y = 1:length(.),
+        .f = function(.x, .y){
+          tibble(
+            eq = .y,
+            strategy_1 <- .x$complete_strategy_1,
+            strategy_2 <- .x$complete_strategy_2,
+            strategy_3 <- .x$complete_strategy_3
+          )
+        }
+      )
+
+
+  } else{
+    saida <- NULL
+  }
+
 
   saida_resultados <- get_outcomes(game)
 

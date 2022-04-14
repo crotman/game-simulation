@@ -95,8 +95,7 @@ simulate_core <- function(
       p_dev = row_number()
     ) 
     
-  browser()
-  
+
   unique_games <- expand.grid(1:8, 1:8, 1:8) %>% 
     rename(
       dev_1 = 1,
@@ -205,8 +204,7 @@ simulate_core <- function(
   names(values_game) <- names_game
   
   
-  # browser()
-  
+
   simulate_and_label <- function(
     round, 
     values, 
@@ -302,8 +300,7 @@ simulate_core <- function(
       )
     )
     
-    browser()
-    
+
     # con_db = con_db,
     # save_db = save_db,
     # i = i,
@@ -311,16 +308,19 @@ simulate_core <- function(
 
     if(save_db){
 
-      dbWriteTable(
-        conn = con_db, 
-        name = "simulations", 
-        value = data %>% 
-          mutate(
-            i = i,
-            label = label
-          ),
-        append = TRUE
-      )      
+      # dbWriteTable(
+      #   conn = con_db, 
+      #   name = "simulations", 
+      #   value = data %>% 
+      #     mutate(
+      #       i = i,
+      #       label = label
+      #     ),
+      #   append = TRUE
+      # )      
+      # 
+      
+      
 
     }
 
@@ -372,7 +372,6 @@ simulate_core <- function(
     ){
   
     
-    # browser()
 
     result <- map(
       .x = 1:n_executions,
@@ -482,8 +481,7 @@ simulate_core <- function(
 
   tictoc::tic("simulate")
   
-  browser()
-  
+
   
   
   
@@ -559,7 +557,6 @@ simulate_core <- function(
   
   
   
-  browser()
 
   games_for_results_final <- read_rds("games") %>% 
     group_by(
@@ -624,14 +621,13 @@ simulate_core <- function(
       )
   }
   
-  
+
   value_games_formatado <- map2_dfr(
-    .x = values_game,
-    .y = first_games$id,
+    .x = values_game_all,
+    .y = 1:length(values_game_all),
     .f = format_games_log
   )
   
-  browser()  
   #solve  
 
   if(solve_game){
@@ -644,22 +640,24 @@ simulate_core <- function(
     saida = 0
   }
   
-  browser()
 
-  
   if(save_db){
     
-    dbWriteTable(
-      conn = con_db, 
-      name = "eqs", 
-      value = saida$eqs %>% 
-        mutate(
-          i = i,
-          label = label
-        ),
+    if(!is.null(saida$eqs)){
+      dbWriteTable(
+        conn = con_db, 
+        name = "eqs", 
+        value = saida$eqs %>% 
+          mutate(
+            i = i,
+            label = label
+          ),
+        
+        append = TRUE
+      )
       
-      append = TRUE
-    )
+    }
+    
 
     dbWriteTable(
       conn = con_db, 
@@ -700,11 +698,23 @@ simulate_core <- function(
         ),
       append = TRUE
     )
+    
+    
+    dbWriteTable(
+      conn = con_db, 
+      name = "labels", 
+      value = tibble(
+        label = label,
+        name = input$name
+      ),
+      append = TRUE
+    )
+    
+    
 
   }
 
   
-  browser()
 
   saida
 
@@ -2712,8 +2722,8 @@ splitLayout(
         numericInput(
           inputId = "sd_time_develop_game",
           label = withMathJax("$$\\sigma|(!R)$$"),
-          # value = "2",
-          value = "0",
+          value = "2",
+          #value = "0",
           step = "1"
         ) ,
   
@@ -2727,8 +2737,8 @@ splitLayout(
         numericInput(
           inputId = "sd_time_rework_game",
           label = withMathJax("$$\\sigma|R$$"),
-          value = "0",
-          # value = "5",
+          #value = "0",
+          value = "3",
           step = "1"
         ) 
     )
@@ -2754,8 +2764,8 @@ splitLayout(
         numericInput(
           inputId = "sd_time_review_game",
           label = "$$\\sigma$$",
-          # value = "0.2",
-          value = "0",
+          value = "0.2",
+          #value = "0",
           step = "1"
         ) ,
       
@@ -2871,8 +2881,8 @@ splitLayout(
         numericInput(
           inputId = "sd_time_meta_review_game",
           label = "$$\\sigma$$"  %>%  withMathJax(),
-          # value = "0.2",
-          value = "0",
+          value = "0.2",
+          #value = "0",
           step = "0.1"
         ) 
   
@@ -2916,6 +2926,13 @@ splitLayout(
 
 
 ```{r}
+
+  textInput(
+    inputId = "name",
+    label = "name",
+    value = ""
+  )
+
 
   actionButton(
     inputId = "solve_all_no_memo",
@@ -3265,19 +3282,20 @@ observeEvent( input$solve_all_no_memo , {
       instance = value
     )
 
+  browser()
+  
   all_params <- all_params_all %>% 
     sample_n(size = nrow(.)) %>% 
-    #retirar
-    filter(
-      process_fraction_review_game == 0,
-      process_fraction_metareview_game == 0,
-      characteristics_kludges_harmful_game == "No"
-    ) %>% 
+    #retirar agora
+    # filter(
+    #   process_fraction_review_game %in% c(0, 50),
+    #   process_fraction_metareview_game == c(0, 50),
+    #   characteristics_kludges_harmful_game == "No"
+    # ) %>% 
     identity()
 
   saida <- list()
   
-  browser()
   #retirar
   for (i in 1:nrow(all_params)){
   # for (i in sample(x = 1:nrow(all_params), size = 1)){
@@ -3337,38 +3355,7 @@ observeEvent( input$solve_all_no_memo , {
   print("foi")
 
 
-  eqs <- map_df(
-    .x = saida,
-    .f = ~{
-      .x$eqs %>% 
-        mutate(
-          instance = .x$instance
-        )
-    }
-  ) %>% 
-    inner_join(
-      all_params,
-      by = "instance"
-    )
-  
-  
-  results <- map_df(
-    .x = saida,
-    .f = ~{
-      .x$resultados %>% 
-        mutate(
-          instance = .x$instance
-        )
-    }
-  ) %>% 
-    inner_join(
-      all_params,
-      by = "instance"
-    )
-  
-  write_rds(eqs, "solved-games/data/eqs.rds")
-  write_rds(results, "solved-games/data/results.rds")
-  
+
   
   
   
