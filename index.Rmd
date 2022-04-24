@@ -70,18 +70,20 @@ simulate_core <- function(
   i = NA
 
   ){
-  
+     
 
+  browser()
+  
   possible_strategy_dev <- tibble(
     strategy_dev = c(actions$Diligent, actions$Kludgy )
   )
   
   possible_strategy_rev <- tibble(
-    strategy_rev = c(actions$Careful, actions$Negligent  )
+    strategy_rev = c(actions$Careful, actions$Negligent, "NoReview"  )
   )
   
   possible_strategy_meta <- tibble(
-    strategy_meta = c(actions$Accurate, actions$Inaccurate  )
+    strategy_meta = c(actions$Accurate, actions$Inaccurate, "NoMetaReview"  )
   )
 
   #retirar
@@ -96,7 +98,7 @@ simulate_core <- function(
     ) 
     
 
-  unique_games <- expand.grid(1:8, 1:8, 1:8) %>% 
+  unique_games <- expand.grid(1:18, 1:18, 1:18) %>% 
     rename(
       dev_1 = 1,
       dev_2 = 2,
@@ -148,7 +150,7 @@ simulate_core <- function(
     ) 
     
 
-  games <- expand.grid(1:8, 1:8, 1:8) %>% 
+  games_before_prunning <- expand.grid(1:18, 1:18, 1:18) %>% 
     rename(
       dev_1 = 1,
       dev_2 = 2,
@@ -308,17 +310,17 @@ simulate_core <- function(
 
     if(save_db){
 
-      # dbWriteTable(
-      #   conn = con_db, 
-      #   name = "simulations", 
-      #   value = data %>% 
-      #     mutate(
-      #       i = i,
-      #       label = label
-      #     ),
-      #   append = TRUE
-      # )      
-      # 
+      dbWriteTable(
+        conn = con_db,
+        name = "simulations",
+        value = data %>%
+          mutate(
+            i = i,
+            label = label
+          ),
+        append = TRUE
+      )
+
       
       
 
@@ -446,25 +448,56 @@ simulate_core <- function(
       
       saida$devs <- developers
       
+      saida$combination = this_game
 
       saida 
     }  
 
+  game_has_review = values_game$prob_review != 0
+  game_has_meta_review = values_game$prob_meta_review != 0
   
+  games <- games_before_prunning %>% 
+    group_by(game) %>% 
+    mutate(
+      n_no_meta_review = sum(strategy_meta == "NoMetaReview"),
+      n_no_review = sum(strategy_rev == "NoReview"),
+    ) %>% 
+    mutate(
+      fica_review = 
+        (game_has_review & n_no_review == 0) | 
+        (!game_has_review & n_no_review == 3),
+      fica_meta_review = 
+        (game_has_meta_review & n_no_meta_review == 0) | 
+        (!game_has_meta_review & n_no_meta_review == 3)
+    ) %>% 
+    filter(
+      fica_review & fica_meta_review
+    ) %>% 
+    ungroup() %>% 
+    select(
+      -c(
+        n_no_meta_review,
+        n_no_review,
+        fica_review,
+        fica_meta_review
+      )
+    )
 
-  
-  
+
   values_game <- map(
-    .x = min(games$game):max(games$game),
+    .x = games$game %>% unique() %>% sort(),
     .f = ~create_game(this_game = .x, values = values_game)
   )
 
-
+  
 
   values_game_firsts <- values_game %>% 
     enframe() %>% 
+    mutate(
+      game = games$game %>% unique() %>% sort()
+    ) %>% 
     filter(
-      name %in% first_games$id
+      game %in% first_games$id
     )
   
   values_game_all <- values_game
@@ -478,22 +511,15 @@ simulate_core <- function(
 
   n_game <- n_executions_game
 
-
   tictoc::tic("simulate")
-  
 
-  
-  
-  
-
-  
-  
   
   if(run_parallel){
 
     results_game <- furrr::future_map2_dfr(
       .x = values_game,
-      .y = first_games$id,
+      .y = values_game_firsts$game,
+      #.y = first_games$id,
       .f = ~simulate_executions(
         values = .x, 
         n_executions = n_game, 
@@ -555,10 +581,11 @@ simulate_core <- function(
 
   }
   
-  
-  
 
-  games_for_results_final <- read_rds("games") %>% 
+  browser()
+  
+  
+  games_for_results_final <- games %>% 
     group_by(
       game,
       strategy_dev,
@@ -587,11 +614,11 @@ simulate_core <- function(
       unique_games %>%  rename(id_receive = id),
       by = c("id_unique")
     ) %>% 
-    left_join(
+    inner_join(
       games_for_results_final,
       by = c("id_receive" = "game")
     ) %>% 
-    left_join(
+    inner_join(
       results_run,
       by = c(
         "id_run" = "combination",
@@ -609,7 +636,6 @@ simulate_core <- function(
       merges
     )
   
-  # browser()
 
 
   format_games_log <- function(values, i){
@@ -629,6 +655,8 @@ simulate_core <- function(
   )
   
   #solve  
+  
+  browser()
 
   if(solve_game){
     
@@ -3287,13 +3315,15 @@ observeEvent( input$solve_all_no_memo , {
   all_params <- all_params_all %>% 
     sample_n(size = nrow(.)) %>% 
     #retirar agora
-    # filter(
-    #   process_fraction_review_game %in% c(0, 50),
-    #   process_fraction_metareview_game == c(0, 50),
-    #   characteristics_kludges_harmful_game == "No"
-    # ) %>% 
+    filter(
+      process_fraction_review_game %in% c(0),
+      process_fraction_metareview_game == c(0)
+      # characteristics_kludges_harmful_game == "No"
+    ) %>%
     identity()
 
+  browser()
+  
   saida <- list()
   
   #retirar
@@ -3337,7 +3367,7 @@ observeEvent( input$solve_all_no_memo , {
 
     tictoc::toc()
     
-    
+    browser()
     
     saida[[i]] <- elemento    
     
@@ -3347,8 +3377,7 @@ observeEvent( input$solve_all_no_memo , {
     print(i)
     print("#############################################")
     
-    write_rds(saida[[i]], str_glue("saida_final_{i}"))
-    
+
     
   }
 

@@ -3,14 +3,15 @@ library(gtree)
 
 prepare_strategies_to_solve <-  function(params){
 
+
   strategies <- purrr::map2_df(
     .x = params,
     .y = 1:length(params),
     .f = ~{
       .x$devs %>%
         dplyr::mutate(
-          combination = .y,
-          dev = row_number()
+          dev = row_number(),
+          combination = .x$combination
         )
     }
   ) %>%
@@ -21,6 +22,9 @@ prepare_strategies_to_solve <-  function(params){
       strategy_meta,
       remove = FALSE
     )
+
+
+  strategies
 
 }
 
@@ -38,6 +42,8 @@ prepare_and_solve_game <- function(params, results){
     )
 
   strategies <- prepare_strategies_to_solve(params)
+
+  browser()
 
   solve_game(strategies, results_grouped)
 
@@ -221,31 +227,34 @@ solve_game <- function(strategies, results){
 
 
 
-  if (eq$eq.li %>% length() > 2){
 
-    eq_table_game <- eq %>%
-      eq_tables(
-        reduce.tables = FALSE,
-        combine = 0
-      )
+    tryCatch(
+      {
 
-    saida  <- eq_table_game %>%
-      map2_df(
-        .y = 1:length(.),
-        .f = function(.x, .y){
-          tibble(
-            eq = .y,
-            strategy_1 <- .x$complete_strategy_1,
-            strategy_2 <- .x$complete_strategy_2,
-            strategy_3 <- .x$complete_strategy_3
+        eq_table_game <- eq %>%
+          eq_tables(
+            reduce.tables = FALSE,
+            combine = 0
           )
-        }
-      )
 
+        saida  <- eq_table_game %>%
+          map2_df(
+            .y = 1:length(.),
+            .f = function(.x, .y){
+              tibble(
+                eq = .y,
+                strategy_1 <- .x$complete_strategy_1,
+                strategy_2 <- .x$complete_strategy_2,
+                strategy_3 <- .x$complete_strategy_3
+              )
+            }
+          )
+      },
 
-  } else{
-    saida <- NULL
-  }
+      error = saida <- NULL
+
+  )
+
 
 
   saida_resultados <- get_outcomes(game)
