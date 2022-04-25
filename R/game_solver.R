@@ -43,7 +43,6 @@ prepare_and_solve_game <- function(params, results){
 
   strategies <- prepare_strategies_to_solve(params)
 
-  browser()
 
   solve_game(strategies, results_grouped)
 
@@ -214,6 +213,8 @@ solve_game <- function(strategies, results){
   game_stages <- c(strategy_stages, payoff_stages)
 
 
+  browser()
+
   game = new_game(
     gameId = "Simulation",
     options = make_game_options(verbose=TRUE),
@@ -222,8 +223,8 @@ solve_game <- function(strategies, results){
   )
 
 
-  eq <- game %>%
-    game_solve()
+    eq <- game %>%
+    game_gambit_solve()
 
 
 

@@ -72,8 +72,7 @@ simulate_core <- function(
   ){
      
 
-  browser()
-  
+
   possible_strategy_dev <- tibble(
     strategy_dev = c(actions$Diligent, actions$Kludgy )
   )
@@ -582,8 +581,7 @@ simulate_core <- function(
   }
   
 
-  browser()
-  
+
   
   games_for_results_final <- games %>% 
     group_by(
@@ -656,7 +654,6 @@ simulate_core <- function(
   
   #solve  
   
-  browser()
 
   if(solve_game){
     
@@ -3310,8 +3307,7 @@ observeEvent( input$solve_all_no_memo , {
       instance = value
     )
 
-  browser()
-  
+ 
   all_params <- all_params_all %>% 
     sample_n(size = nrow(.)) %>% 
     #retirar agora
@@ -3322,8 +3318,7 @@ observeEvent( input$solve_all_no_memo , {
     ) %>%
     identity()
 
-  browser()
-  
+
   saida <- list()
   
   #retirar
@@ -3366,8 +3361,6 @@ observeEvent( input$solve_all_no_memo , {
     
 
     tictoc::toc()
-    
-    browser()
     
     saida[[i]] <- elemento    
     
