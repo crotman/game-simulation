@@ -1,4 +1,26 @@
-library(gtree)
+
+
+
+prepare_and_solve_game <- function(params, results){
+
+  results_grouped <- results %>%
+    group_by(
+      combination,
+      developer
+    ) %>%
+    summarise(
+      merges = mean(merges)
+    )
+
+  strategies <- prepare_strategies_to_solve(params)
+
+  output <- solve_game_gambit(strategies, results_grouped)
+
+  browser()
+
+  output
+
+}
 
 
 prepare_strategies_to_solve <-  function(params){
@@ -25,28 +47,6 @@ prepare_strategies_to_solve <-  function(params){
 
 
   strategies
-
-}
-
-
-prepare_and_solve_game <- function(params, results){
-
-
-  results_grouped <- results %>%
-    group_by(
-      combination,
-      developer
-    ) %>%
-    summarise(
-      merges = mean(merges)
-    )
-
-  strategies <- prepare_strategies_to_solve(params)
-
-  browser()
-
-
-  solve_game(strategies, results_grouped)
 
 }
 
@@ -215,6 +215,7 @@ solve_game <- function(strategies, results){
 
   browser()
 
+
   game = new_game(
     gameId = "Simulation",
     options = make_game_options(verbose=TRUE),
@@ -270,37 +271,13 @@ solve_game <- function(strategies, results){
 
 solve_game_gambit <- function(strategies, results){
 
-  # A tibble: 1 x 4
-  # eq complete_strategy_1          complete_strategy_2          complete_strategy_3
-  # <int> <chr>                        <chr>                        <chr>
-  #   1     1 Kludgy_NoReview_NoMetaReview Kludgy_NoReview_NoMetaReview Kludgy_NoReview_NoMetaReview
 
-  strategies <- tribble(
-    ~combination, ~complete_strategy, ~developer,
-    1,            "Cooperate",        1,
-    1,            "Cooperate",        2,
-    2,            "Cooperate",        1,
-    2,            "Defect",           2,
-    3,            "Defect",           1,
-    3,            "Cooperate",        2,
-    4,            "Defect",           1,
-    4,            "Defect",           2
-  )
+  n_strategies <- strategies$complete_strategy %>% unique() %>%  length()
 
-  results <- tribble(
-    ~combination,  ~dev, ~merges,
-    1,             1,    -1,
-    1,             2,    -1,
-    2,             1,    -3,
-    2,             2,    0,
-    3,             1,    0,
-    3,             2,    -3,
-    4,             1,    -2,
-    4,             2,    -2
-  )
+  n_developers <- strategies$dev %>%  unique() %>% length()
 
 
-  gambit_players <- 1:(strategies$developer %>%  unique() %>% length()) %>%
+  gambit_players <- 1:n_developers %>%
     enframe(
       name = "player"
     ) %>%
@@ -317,7 +294,8 @@ solve_game_gambit <- function(strategies, results){
 
   gambit_content_header <- paste0("NFG 1 R \"Prisoner\" {", players_content, "} ")
 
-  strategies_content <- paste0( "{",
+  strategies_content <- paste0(
+    "{",
     str_glue("\"{gambit_strategies$strategy}\"") %>% str_flatten(collapse = " " ),
     "}"
   )
@@ -329,8 +307,7 @@ solve_game_gambit <- function(strategies, results){
 
   gambit_content_strategies <- paste0("{\n", gambit_content_strategies, "\n}" )
 
-
-  strategy_fields <- str_glue("id_strategy_{nrow(gambit_strategies):1}")
+  strategy_fields <- str_glue("id_strategy_{n_developers:1}")
 
   merge_fields <- paste0(
     "{",
@@ -338,21 +315,22 @@ solve_game_gambit <- function(strategies, results){
     "}"
   )
 
+
   payoff_content_df <- results %>%
     inner_join(
       strategies,
-      by = c("dev" = "developer", "combination")
+      by = c("developer" = "dev", "combination")
     ) %>%
     inner_join(
       gambit_strategies,
       by = c("complete_strategy" = "strategy")
     ) %>%
     select(
-      dev, merges, id_strategy, combination
+      developer, merges, id_strategy, combination
     ) %>%
     pivot_wider(
       values_from = c(merges, id_strategy),
-      names_from = dev
+      names_from = developer
     ) %>%
     arrange(
       across(
@@ -382,7 +360,6 @@ solve_game_gambit <- function(strategies, results){
       collapse = " "
     )
 
-
   nfg_content <- paste0(
     gambit_content_header,
     "\n",
@@ -395,11 +372,57 @@ solve_game_gambit <- function(strategies, results){
     last_line
   )
 
+  new_uuid <- uuid::UUIDgenerate()
 
   write_file(
     nfg_content,
-    "nfg"
+    new_uuid
   )
+
+  command <- paste(
+    sep = " ",
+    here("gambit/gambit-enumpure.exe"),
+    here(new_uuid)
+  )
+
+
+  output <- system(command =  command, intern = TRUE) %>%
+    last() %>%
+    str_split(
+      pattern = ","
+    ) %>%
+    enframe() %>%
+    unnest(value) %>%
+    filter(
+      value != "NE"
+    ) %>%
+    mutate(
+      index = row_number() - 1
+    ) %>%
+    mutate(
+      player = index %/% n_strategies + 1,
+      strategy = index %% n_strategies + 1,
+      eq = index %/% (n_developers * n_strategies) + 1
+    ) %>%
+    filter(
+      value == 1
+    ) %>%
+    select(
+      eq, player, strategy
+    ) %>%
+    left_join(
+      gambit_strategies %>%  rename(complete_strategy = strategy),
+      by = c("strategy" = "id_strategy")
+    ) %>%
+    select(-strategy) %>%
+    pivot_wider(
+      names_from = player,
+      values_from = complete_strategy,
+      names_prefix = "complete_strategy_"
+    )
+
+
+
 
 
 

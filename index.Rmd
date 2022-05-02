@@ -40,7 +40,6 @@ library(shinydashboardPlus)
 library(ggrepel)
 library(slider)
 library(memoise)
-library(gtree)
 library(DBI)
 
 source("R/create_enums.R", encoding = "UTF-8")
