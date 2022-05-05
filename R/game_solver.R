@@ -349,6 +349,8 @@ solve_game_gambit <- function(strategies, results){
       )
     )
 
+  browser()
+
   payoff_content <- paste0(
     "{\n",
     str_flatten(payoff_content_df$payoff_content, collapse = "\n"),

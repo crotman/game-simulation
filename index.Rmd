@@ -2746,8 +2746,8 @@ splitLayout(
         numericInput(
           inputId = "sd_time_develop_game",
           label = withMathJax("$$\\sigma|(!R)$$"),
-          value = "2",
-          #value = "0",
+          #value = "2",
+          value = "0",
           step = "1"
         ) ,
   
@@ -2761,8 +2761,8 @@ splitLayout(
         numericInput(
           inputId = "sd_time_rework_game",
           label = withMathJax("$$\\sigma|R$$"),
-          #value = "0",
-          value = "3",
+          value = "0",
+          #value = "3",
           step = "1"
         ) 
     )
@@ -2788,8 +2788,8 @@ splitLayout(
         numericInput(
           inputId = "sd_time_review_game",
           label = "$$\\sigma$$",
-          value = "0.2",
-          #value = "0",
+          #value = "0.2",
+          value = "0",
           step = "1"
         ) ,
       
@@ -2797,25 +2797,29 @@ splitLayout(
         numericInput(
           inputId = "prob_kludgy_review_when_kludge_careful_game",
           label = "$$P(K)|(K, C)$$" %>% withMathJax() ,
-          value = "0.85"
+          # value = "0.85"
+          value = "1"
         ) ,
       
         numericInput(
           inputId = "prob_kludgy_review_when_not_kludge_careful_game",
           label = "$$P(K)|(!K, C)$$" %>% withMathJax(),
-          value = "0.1"
+          #value = "0.1"
+          value = "0"
         ) ,
           
         numericInput(
           inputId = "prob_kludgy_review_when_kludge_negligent_game",
           label = "$$P(K)|(K, N)$$" %>% withMathJax(),
-          value = "0.25"
+          # value = "0.25"
+          value = "0"
         ) ,
       
         numericInput(
           inputId = "prob_kludgy_review_when_not_kludge_negligent_game",
           label = "$$P(K)|(!K, N)$$" %>% withMathJax(),
-          value = "0.1"
+          # value = "0.1"
+          value = "0"
         ) 
         
     )
@@ -2905,8 +2909,8 @@ splitLayout(
         numericInput(
           inputId = "sd_time_meta_review_game",
           label = "$$\\sigma$$"  %>%  withMathJax(),
-          value = "0.2",
-          #value = "0",
+          #value = "0.2",
+          value = "0",
           step = "0.1"
         ) 
   
@@ -3276,7 +3280,7 @@ observeEvent( input$solve_all_no_memo , {
   tib_characteristics_kludges_harmful_game <- tibble(
     # characteristics_kludges_harmful_game = likert_harm$description,
     characteristics_kludges_harmful_game = harm_degrees,
-    order = c(1, 1.05, 1.1)
+    order = c(1, 1.025, 1.05)
   )
   
 
@@ -3306,14 +3310,15 @@ observeEvent( input$solve_all_no_memo , {
       instance = value
     )
 
- 
+  browser()
+   
   all_params <- all_params_all %>% 
     sample_n(size = nrow(.)) %>% 
     #retirar agora
     filter(
-      process_fraction_review_game %in% c(0),
-      process_fraction_metareview_game == c(0)
-      # characteristics_kludges_harmful_game == "No"
+      process_fraction_review_game %in% c(50),
+      process_fraction_metareview_game == c(0),
+      characteristics_kludges_harmful_game == "Moderately"
     ) %>%
     identity()
 
