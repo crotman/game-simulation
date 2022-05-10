@@ -16,7 +16,7 @@ prepare_and_solve_game <- function(params, results){
 
   output <- solve_game_gambit(strategies, results_grouped)
 
-  browser()
+  # browser()
 
   output
 
@@ -213,7 +213,7 @@ solve_game <- function(strategies, results){
   game_stages <- c(strategy_stages, payoff_stages)
 
 
-  browser()
+  # browser()
 
 
   game = new_game(
@@ -349,7 +349,7 @@ solve_game_gambit <- function(strategies, results){
       )
     )
 
-  browser()
+  # browser()
 
   payoff_content <- paste0(
     "{\n",
