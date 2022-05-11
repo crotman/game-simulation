@@ -2736,8 +2736,8 @@ splitLayout(
         numericInput(
           inputId = "sd_time_develop_game",
           label = withMathJax("$$\\sigma|(!R)$$"),
-          #value = "2",
-          value = "0",
+          value = "2",
+          #value = "0",
           step = "1"
         ) ,
   
@@ -2751,8 +2751,8 @@ splitLayout(
         numericInput(
           inputId = "sd_time_rework_game",
           label = withMathJax("$$\\sigma|R$$"),
-          value = "0",
-          #value = "3",
+          #value = "0",
+          value = "3",
           step = "1"
         ) 
     )
@@ -2778,8 +2778,8 @@ splitLayout(
         numericInput(
           inputId = "sd_time_review_game",
           label = "$$\\sigma$$",
-          #value = "0.2",
-          value = "0",
+          value = "0.2",
+          #value = "0",
           step = "1"
         ) ,
       
@@ -3258,19 +3258,19 @@ observeEvent( input$solve_all_no_memo , {
   
 
   tib_process_fraction_review_game <-  tibble(
-    process_fraction_review_game = c(0, 50, 100)
+    process_fraction_review_game = c(0, 25, 50, 75, 100)
   )
   
   tib_process_fraction_metareview_game <-  tibble(
     process_fraction_metareview_game = c(0, 50, 100)
   )
   
-  harm_degrees <- c("No", "Moderately", "A great deal")
+  harm_degrees <- c("No", "A little", "Moderately", "A great deal")
   
   tib_characteristics_kludges_harmful_game <- tibble(
     # characteristics_kludges_harmful_game = likert_harm$description,
     characteristics_kludges_harmful_game = harm_degrees,
-    order = c(1, 1.025, 1.05)
+    order = c(1, 1.025, 1.05, 1.075)
   )
   
 
@@ -3300,15 +3300,15 @@ observeEvent( input$solve_all_no_memo , {
       instance = value
     )
 
-  # browser()
+  browser()
    
   all_params <- all_params_all %>% 
     sample_n(size = nrow(.)) %>% 
     #retirar agora
     filter(
-      process_fraction_review_game %in% c(0, 50),
+      # process_fraction_review_game %in% c(0, 50),
       process_fraction_metareview_game == c(0),
-      characteristics_kludges_harmful_game == "Moderately"
+      # characteristics_kludges_harmful_game == "Moderately"
     ) %>%
     identity()
 
