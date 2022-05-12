@@ -15,7 +15,7 @@ ui <- fluidPage(
     # Application title
     titlePanel("Old Faithful Geyser Data"),
 
-    # Sidebar with a slider input for number of bins 
+    # Sidebar with a slider input for number of bins
     sidebarLayout(
         sidebarPanel(
             sliderInput("bins",
@@ -45,5 +45,5 @@ server <- function(input, output) {
     })
 }
 
-# Run the application 
+# Run the application
 shinyApp(ui = ui, server = server)
