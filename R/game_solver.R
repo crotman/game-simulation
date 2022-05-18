@@ -271,6 +271,7 @@ solve_game <- function(strategies, results){
 
 solve_game_gambit <- function(strategies, results){
 
+  browser()
 
   n_strategies <- strategies$complete_strategy %>% unique() %>%  length()
 
@@ -387,6 +388,7 @@ solve_game_gambit <- function(strategies, results){
     here(new_uuid)
   )
 
+  browser()
 
   output <- system(command =  command, intern = TRUE) %>%
     last() %>%
