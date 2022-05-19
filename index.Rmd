@@ -664,11 +664,11 @@ simulate_core <- function(
   }
   
 
-  # browser()  
-  
+
   if(save_db){
     
-    if(!is.null(saida)){
+
+    if(!is.null(saida) & length(saida) != 1){
       dbWriteTable(
         conn = con_db, 
         name = "eqs", 
@@ -3259,14 +3259,14 @@ observeEvent( input$solve_all_no_memo , {
   
 
   tib_process_fraction_review_game <-  tibble(
-    process_fraction_review_game = c(0, 10, 20, 30, 40, 50)
+    process_fraction_review_game = c(0, 10, 20, 30, 40, 50, 60, 70, 80)
   )
   
   tib_process_fraction_metareview_game <-  tibble(
     process_fraction_metareview_game = c(0, 50, 100)
   )
   
-  harm_degrees <- c("0", "1", "2", "3", "4", "5")
+  harm_degrees <- c("1", "1.0025", "1.005", "1.0075", "1.01", "1.0125", "1.015", "1.0175", "1.02")
   
   tib_characteristics_kludges_harmful_game <- tibble(
     # characteristics_kludges_harmful_game = likert_harm$description,
