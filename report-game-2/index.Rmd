@@ -15,6 +15,7 @@ library(DBI)
 
 conexao <- dbConnect(RSQLite::SQLite(), "db/log.db" )
 
+
 n_devs <- 3
 
 params <- tbl(conexao, "params") %>% 
@@ -29,6 +30,9 @@ params <- tbl(conexao, "params") %>%
 eqs <- tbl(conexao, "eqs") %>% 
   collect() %>% 
   distinct()
+
+
+
 
 
 params_eqs <- params %>% 
@@ -76,7 +80,18 @@ company_payoff <- params_eqs %>%
   )
   
 
-
+results_long <- tbl(conexao, "results") %>% 
+  collect() %>% 
+  mutate(
+    complete_strategy = str_glue("{strategy_dev}_{strategy_rev}_{strategy_meta}")
+  ) %>% 
+  group_by(
+    i, combination, dev, complete_strategy
+  ) %>% 
+  summarise(
+    merges = mean(merges)
+  ) %>% 
+  ungroup()
 
 
 ```
@@ -157,7 +172,7 @@ create_plot <- function(data, fill_col = "strategy", fill_name = "Strategy"){
       fill = fill_name
     ) +
     scale_y_continuous(
-      labels = scales::percent_format(accuracy = 1),
+      labels = scales::percent_format(accuracy = 0.01),
       breaks = dados_grafico$entropy_factor - 1,
       minor_breaks = NULL
     ) +
@@ -183,6 +198,65 @@ create_plot( data = dados_grafico)
 
 
 create_plot(data = company_payoff, fill_col = "total_merges", fill_name = "total_merges")
+
+
+```
+
+
+
+
+```{r}
+
+renderPlot(
+  
+
+  results %>% 
+    filter(
+      i == 1
+    ) %>% 
+    mutate(
+      across(
+        .cols = starts_with("complete_"),
+        .fns = ~str_sub(.x, start = 1, end =  1)
+      )
+    ) %>% 
+    group_by(complete_strategy_2, complete_strategy_3) %>% 
+    mutate(
+      best_1 = if_else(merges_1 == max(merges_1), "orange", "gray")
+    ) %>%
+    ungroup() %>% 
+    ggplot() +
+    geom_text(
+      aes(
+        x = complete_strategy_1,
+        y = complete_strategy_2,
+        label = merges_1,
+        color = best_1
+      ),
+      nudge_x = -0.3
+    ) +
+    geom_text(
+      aes(
+        x = complete_strategy_1,
+        y = complete_strategy_2,
+        label = merges_2
+      ),
+    ) +
+    geom_text(
+      aes(
+        x = complete_strategy_1,
+        y = complete_strategy_2,
+        label = merges_3
+      ),
+      nudge_x = .3
+    ) +
+    scale_color_identity() +
+    facet_row(
+      facets = vars(complete_strategy_3),
+      labeller = label_both
+    )
+  
+)
 
 
 ```
