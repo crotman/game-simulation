@@ -12,6 +12,8 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 
 library(tidyverse)
 library(DBI)
+library(ggforce)
+library(ggiraph)
 
 conexao <- dbConnect(RSQLite::SQLite(), "db/log.db" )
 
@@ -102,6 +104,9 @@ results_long <- tbl(conexao, "results") %>%
 
 ```{r}
 
+
+
+
 dados_grafico <- params_eqs %>% 
   mutate(
     across(
@@ -137,22 +142,19 @@ create_plot <- function(data, fill_col = "strategy", fill_name = "Strategy"){
       high = "darkgreen"
     )  
 
-    
   }
-  
 
   
-  
-  ggplot(data,
+  plot <- ggplot(data,
       aes(
         x = prob_review,
         y = (entropy_factor - 1) ,
       ),
-         
     ) +
-    geom_tile(
+    geom_tile_interactive(
       aes(
-        fill = .data[[fill_col]]
+        fill = .data[[fill_col]],
+        data_id = i
       ),
       color = 'white'
     ) +
@@ -182,11 +184,18 @@ create_plot <- function(data, fill_col = "strategy", fill_name = "Strategy"){
       minor_breaks = NULL
     ) +
     fill_scale_layer
+  
+  girafe(ggobj = plot, width_svg = 10, height_svg = 10, options = list(opts_selection(selected = "1", type = "single")))
+  
 }
 
 
+girafeOutput(
+    outputId = "all_eqs"
+)
 
-create_plot( data = dados_grafico)
+
+output$all_eqs <- renderGirafe( create_plot( data = dados_grafico ))
 
 
 ```
@@ -207,13 +216,28 @@ create_plot(data = company_payoff, fill_col = "total_merges", fill_name = "total
 
 ```{r}
 
-renderPlot(
-  
 
+results_filtrado <- reactive({
+  
   results %>% 
     filter(
-      i == 1
-    ) %>% 
+      i == input$all_eqs_selected
+    )
+  
+})
+
+
+
+
+
+girafeOutput(
+    outputId = "eq"
+)
+
+output$eq <- ggiraph::renderGirafe({
+  
+
+  plot <- results_filtrado() %>% 
     mutate(
       across(
         .cols = starts_with("complete_"),
@@ -222,7 +246,17 @@ renderPlot(
     ) %>% 
     group_by(complete_strategy_2, complete_strategy_3) %>% 
     mutate(
-      best_1 = if_else(merges_1 == max(merges_1), "orange", "gray")
+      best_1 = if_else(merges_1 == max(merges_1), "orange", "darkgray")
+    ) %>%
+    ungroup() %>% 
+    group_by(complete_strategy_1, complete_strategy_3) %>% 
+    mutate(
+      best_2 = if_else(merges_2 == max(merges_2), "orange", "darkgray")
+    ) %>%
+    ungroup() %>% 
+    group_by(complete_strategy_1, complete_strategy_2) %>% 
+    mutate(
+      best_3 = if_else(merges_3 == max(merges_3), "orange", "darkgray")
     ) %>%
     ungroup() %>% 
     ggplot() +
@@ -239,14 +273,16 @@ renderPlot(
       aes(
         x = complete_strategy_1,
         y = complete_strategy_2,
-        label = merges_2
+        label = merges_2,
+        color = best_2
       ),
     ) +
     geom_text(
       aes(
         x = complete_strategy_1,
         y = complete_strategy_2,
-        label = merges_3
+        label = merges_3,
+        color = best_3
       ),
       nudge_x = .3
     ) +
@@ -254,8 +290,16 @@ renderPlot(
     facet_row(
       facets = vars(complete_strategy_3),
       labeller = label_both
-    )
+    ) +
+    theme_minimal()
   
+    girafe(ggobj = plot, width_svg = 10, height_svg = 10 )
+
+  
+}
+
+
+
 )
 
 
