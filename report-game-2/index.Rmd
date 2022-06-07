@@ -1,7 +1,5 @@
 ---
-title: "Untitled"
-author: "EPE"
-date: "12/05/2022"
+title: "Game Simulation"
 output: html_document
 runtime: shiny
 ---
@@ -14,6 +12,8 @@ library(tidyverse)
 library(DBI)
 library(ggforce)
 library(ggiraph)
+library(scales)
+
 
 conexao <- dbConnect(RSQLite::SQLite(), "db/log.db" )
 
@@ -130,22 +130,39 @@ dados_grafico <- params_eqs %>%
 ```{r}
 
 
-create_plot <- function(data, fill_col = "strategy", fill_name = "Strategy"){
+create_plot <- function(data, fill_col = "strategy", fill_name = "Strategy", selectable = TRUE){
 
   if(fill_col == "strategy"){
     fill_scale_layer  <- scale_fill_manual(
       values = c(D = "darkgreen", K = "darkred" )
     )
+    
+    format_function <- identity
+    
+    plot_data <-  data %>%
+      mutate(
+        content_tiles = .data[[fill_col]]
+      )
+    
+    
   } else{
     fill_scale_layer  <- scale_fill_gradient(
       low = "darkred",
       high = "darkgreen"
     )  
+    
+    plot_data <-  data %>%
+      mutate(
+        content_tiles = number( .data[[fill_col]], accuracy = 0.1) 
+      )
+
 
   }
+  
 
   
-  plot <- ggplot(data,
+  
+  plot <- ggplot(plot_data,
       aes(
         x = prob_review,
         y = (entropy_factor - 1) ,
@@ -160,7 +177,7 @@ create_plot <- function(data, fill_col = "strategy", fill_name = "Strategy"){
     ) +
     geom_text(
       aes(
-        label = .data[[fill_col]]
+        label = content_tiles
       ),
       color = "#FFFFFF",
     ) +
@@ -184,8 +201,13 @@ create_plot <- function(data, fill_col = "strategy", fill_name = "Strategy"){
       minor_breaks = NULL
     ) +
     fill_scale_layer
+ 
   
-  girafe(ggobj = plot, width_svg = 10, height_svg = 10, options = list(opts_selection(selected = "1", type = "single")))
+  if(selectable){
+    girafe(ggobj = plot, width_svg = 10, height_svg = 10, options = list(opts_selection(selected = "1", type = "single", css = "fill:blue") ))
+  }else{
+    girafe(ggobj = plot, width_svg = 10, height_svg = 10)
+  }
   
 }
 
@@ -206,7 +228,7 @@ output$all_eqs <- renderGirafe( create_plot( data = dados_grafico ))
 ```{r}
 
 
-create_plot(data = company_payoff, fill_col = "total_merges", fill_name = "total_merges")
+create_plot(data = company_payoff, fill_col = "total_merges", fill_name = "total_merges", selectable = FALSE)
 
 
 ```
@@ -260,11 +282,21 @@ output$eq <- ggiraph::renderGirafe({
     ) %>%
     ungroup() %>% 
     ggplot() +
+    geom_tile(
+        aes(
+          x = complete_strategy_1,
+          y = complete_strategy_2,
+          fill = best_1 == "orange" & best_2 == "orange" & best_3 == "orange"
+        ),
+        show.legend = FALSE,
+        alpha = 0.3,
+        color = "black"
+    ) +
     geom_text(
       aes(
         x = complete_strategy_1,
         y = complete_strategy_2,
-        label = merges_1,
+        label = number(merges_1, accuracy = 0.1),
         color = best_1
       ),
       nudge_x = -0.3
@@ -273,7 +305,7 @@ output$eq <- ggiraph::renderGirafe({
       aes(
         x = complete_strategy_1,
         y = complete_strategy_2,
-        label = merges_2,
+        label = number(merges_2, accuracy = 0.1),
         color = best_2
       ),
     ) +
@@ -281,12 +313,15 @@ output$eq <- ggiraph::renderGirafe({
       aes(
         x = complete_strategy_1,
         y = complete_strategy_2,
-        label = merges_3,
+        label = number(merges_3, accuracy = 0.1),
         color = best_3
       ),
       nudge_x = .3
     ) +
     scale_color_identity() +
+    scale_fill_manual(
+      values = c("white", "yellow")
+    ) +
     facet_row(
       facets = vars(complete_strategy_3),
       labeller = label_both
