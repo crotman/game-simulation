@@ -1,4 +1,8 @@
+library(tidyverse)
+library(memoise)
 
+
+local_cache <- cachem::cache_disk("data", max_size = Inf )
 
 
 simulate_core <- function(
@@ -691,6 +695,241 @@ simulate_core_memo <- memoise(simulate_core, cache = local_cache)
 
 
 
+
+update_input <- function(input, process_fraction_review_game, process_fraction_metareview_game, characteristics_kludges_harmful_game ){
+
+
+  input$prob_review_game = process_fraction_review_game/100
+  input$prob_meta_review_game = process_fraction_metareview_game/100
+
+  harm_degree_game <- characteristics_kludges_harmful_game
+
+  if(!is.null(harm_degree_game)){
+
+    entropy_number_game <- likert_harm %>%
+      filter(
+        description == harm_degree_game
+      ) %>%
+      pull(entropy)
+
+    input$entropy_factor_game = entropy_number_game
+
+  }
+
+  input
+
+}
+
+
+
+simulation_results <- eventReactive(eventExpr = input$solve , valueExpr = {
+
+  simulate_core(input = input, n_executions_game = n_executions_game() )
+
+})
+
+
+simulate_all <- eventReactive(eventExpr = input$solve_all , valueExpr = {
+
+
+  tib_process_fraction_review_game <-  tibble(
+    process_fraction_review_game = c(0, 50, 100)
+  )
+
+  tib_process_fraction_metareview_game <-  tibble(
+    process_fraction_metareview_game = c(0, 50, 100)
+  )
+
+  tib_characteristics_kludges_harmful_game <- tibble(
+    characteristics_kludges_harmful_game = likert_harm$description,
+    order = likert_harm$entropy
+  )
+
+
+
+  all_params_all <- crossing(
+    tib_process_fraction_review_game,
+    tib_process_fraction_metareview_game,
+    tib_characteristics_kludges_harmful_game
+  ) %>%
+    arrange(
+      process_fraction_review_game,
+      process_fraction_metareview_game,
+      order
+    ) %>%
+    mutate(
+      instance = row_number()
+    )
+
+
+  files <- list.files(pattern = "[0-9]+.rds") %>%
+    str_remove("\\.rds") %>%
+    as.integer() %>%
+    enframe() %>%
+    rename(
+      instance = value
+    )
+
+
+  all_params <- all_params_all %>%
+    anti_join(files, by = "instance") %>%
+    sample_n(size = nrow(.))
+
+
+  for (i in 1:nrow(all_params)){
+
+
+    info <- list()
+
+    values <- map(
+      .x = names(input),
+      .f = ~{
+        info[[.x]] <- input[[.x]]
+      }
+    )
+
+    names(values) <- names(input)
+
+    this_input <- update_input(
+      input = values,
+      process_fraction_review_game = all_params$process_fraction_review_game[i],
+      process_fraction_metareview_game = all_params$process_fraction_metareview_game[i],
+      characteristics_kludges_harmful_game = all_params$characteristics_kludges_harmful_game[i]
+    )
+
+
+
+    simulate_core_memo(input = this_input, n_executions_game = n_executions_game() )
+
+    write_rds(all_params$instance[i], paste0( all_params$instance[i], ".rds"))
+
+
+  }
+
+
+})
+
+
+
+read_all <- eventReactive(eventExpr = input$read_solve_all , valueExpr = {
+
+
+
+  tib_process_fraction_review_game <-  tibble(
+    process_fraction_review_game = c(0, 25, 50, 75, 100)
+  )
+
+  tib_process_fraction_metareview_game <-  tibble(
+    process_fraction_metareview_game = c(0, 25, 50, 75, 100)
+  )
+
+  tib_characteristics_kludges_harmful_game <- tibble(
+    characteristics_kludges_harmful_game = likert_harm$description,
+    order = likert_harm$entropy
+  )
+
+  all_params_all <- crossing(
+    tib_process_fraction_review_game,
+    tib_process_fraction_metareview_game,
+    tib_characteristics_kludges_harmful_game
+  ) %>%
+    arrange(
+      process_fraction_review_game,
+      process_fraction_metareview_game,
+      order
+    ) %>%
+    mutate(
+      instance = row_number()
+    )
+
+
+
+
+  files <- list.files(pattern = "[0-9]+.rds") %>%
+    str_remove("\\.rds") %>%
+    as.integer() %>%
+    enframe() %>%
+    rename(
+      instance = value
+    )
+
+
+  all_params <- all_params_all %>%
+    semi_join(files, by = "instance") %>%
+    sample_n(size = nrow(.))
+
+
+  saida <- list()
+
+  for (i in 1:nrow(all_params)){
+
+
+    info <- list()
+
+    values <- map(
+      .x = names(input),
+      .f = ~{
+        info[[.x]] <- input[[.x]]
+      }
+    )
+
+    names(values) <- names(input)
+
+    this_input <- update_input(
+      input = values,
+      process_fraction_review_game = all_params$process_fraction_review_game[i],
+      process_fraction_metareview_game = all_params$process_fraction_metareview_game[i],
+      characteristics_kludges_harmful_game = all_params$characteristics_kludges_harmful_game[i]
+    )
+
+    print(i)
+    print(all_params$instance[i])
+
+    elemento <- simulate_core_memo(input = this_input, n_executions_game = n_executions_game(), solve_game = TRUE  )
+
+    saida[[i]] <- elemento
+
+    saida[[i]]$instance <-  all_params$instance[i]
+
+  }
+
+
+  eqs <- map_df(
+    .x = saida,
+    .f = ~{
+      .x$eqs %>%
+        mutate(
+          instance = .x$instance
+        )
+    }
+  ) %>%
+    inner_join(
+      all_params,
+      by = "instance"
+    )
+
+
+  results <- map_df(
+    .x = saida,
+    .f = ~{
+      .x$resultados %>%
+        mutate(
+          instance = .x$instance
+        )
+    }
+  ) %>%
+    inner_join(
+      all_params,
+      by = "instance"
+    )
+
+  write_rds(eqs, "solved-games/data/eqs.rds")
+  write_rds(results, "solved-games/data/results.rds")
+
+
+  saida
+
+})
 
 
 
