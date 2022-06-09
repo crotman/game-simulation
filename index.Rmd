@@ -968,7 +968,7 @@ game_results <- eventReactive(eventExpr = input$go , valueExpr = {
     map2_df(
       .y = 1:n_executions_1(),
       .f = function(data, i){
-        data$data %>% 
+        data %>% 
           mutate(
             round = i
           )
@@ -976,23 +976,13 @@ game_results <- eventReactive(eventExpr = input$go , valueExpr = {
     )
   
 
-  entropy_1 <- result_1 %>% 
-    map2_df(
-      .y = 1:n_executions_1(),
-      .f = function(data, i){
-        data$entropy %>% 
-          mutate(
-            round = i
-          )
-      }
-    )
-  
+
 
   data_2 <- result_2 %>% 
     map2_df(
       .y = 1:n_executions_2(),
       .f = function(data, i){
-        data$data %>% 
+        data %>% 
           mutate(
             round = i
           )
@@ -1000,26 +990,12 @@ game_results <- eventReactive(eventExpr = input$go , valueExpr = {
     )
   
 
-  entropy_2 <- result_2 %>% 
-    map2_df(
-      .y = 1:n_executions_2(),
-      .f = function(data, i){
-        data$entropy %>% 
-          mutate(
-            round = i
-          )
-      }
-    )
-  
-    
+
   output_result <- list()
   
   output_result$data_1 <- data_1
-  output_result$entropy_1 <- entropy_1
   output_result$data_2 <- data_2
-  output_result$entropy_2 <- entropy_2
-  
-  
+
   output_result
 
 })

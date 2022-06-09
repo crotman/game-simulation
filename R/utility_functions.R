@@ -1,6 +1,11 @@
 library(tidyverse)
 library(memoise)
 
+likert_harm <- tibble(
+  entropy = c(1, 1.0025, 1.005, 1.0075, 1.01, 1.0125, 1.015, 1.0175, 1.02),
+  description = c("1", "1.0025", "1.005", "1.0075", "1.01", "1.0125", "1.015", "1.0175", "1.02")
+)
+
 
 local_cache <- cachem::cache_disk("data", max_size = Inf )
 
@@ -932,6 +937,83 @@ read_all <- eventReactive(eventExpr = input$read_solve_all , valueExpr = {
 })
 
 
+create_inputs <- function(suffix){
+
+  wellPanel(
+
+    selectInput(
+      inputId = "dev_1_{suffix}" %>%  str_glue(),
+      label = "Strategy dev1",
+      choices = c(actions$Kludgy, actions$Diligent)
+    ),
+    selectInput(
+      inputId = "dev_1_{suffix}" %>%  str_glue(),
+      label = "Strategy dev2",
+      choices = c(actions$Kludgy, actions$Diligent)
+    ),
+    selectInput(
+      inputId = "dev_1_{suffix}" %>%  str_glue(),
+      label = "Strategy dev3",
+      choices = c(actions$Kludgy, actions$Diligent)
+    ),
+
+    sliderInput("process_fraction_review_{suffix}" %>%  str_glue(),label="% of pull requests reviewed", min = 0, max = 100, post  = " %", value = 50, step = 5),
+    sliderInput("process_fraction_metareview_{suffix}" %>%  str_glue(),label="% of reviews metareviewed", min = 0, max = 100, post  = " %", value = 50, step = 5) %>%  hidden(),
+    radioButtons(
+      inputId = "characteristics_kludges_harmful_{suffix}"  %>%  str_glue(),
+      label = "Kludges harmful",
+      choices = likert_harm$description
+    ),
+
+
+    #### Game ####
+
+
+    numericInput(
+      inputId = "total_steps_{suffix}" %>% str_glue(),
+      label = "$$Steps$$" %>% withMathJax(),
+      value = "2000",
+      step = 1
+    ) %>%  hidden(),
+
+    numericInput(
+      inputId = "entropy_factor_{suffix}" %>% str_glue(),
+      label = "$$H$$" %>% withMathJax(),
+      value = "1.02",
+      step = 0.01
+    ) %>%  hidden() ,
+
+    numericInput(
+      inputId = "prob_review_{suffix}" %>% str_glue(),
+      label = "$$P(Review)$$" %>% withMathJax(),
+      value = "0.5"
+    ) %>%  hidden() ,
+
+    numericInput(
+      inputId = "prob_meta_review_{suffix}" %>% str_glue(),
+      label = "$$P(MetaReview|Review)$$"  %>% withMathJax(),
+      value = "0.5"
+    ) %>%  hidden() ,
+
+    numericInput(
+      inputId = "lambda_{suffix}" %>% str_glue(),
+      label = "$$\\lambda$$"  %>% withMathJax(),
+      value = "1"
+    ) %>%  hidden() ,
+
+    numericInput(
+      inputId = "n_executions_{suffix}" %>% str_glue(),
+      label = "$$executions$$"  %>% withMathJax(),
+      value = "5"
+    )  %>%  hidden()
+
+
+
+  )
+
+
+
+}
 
 
 
