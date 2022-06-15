@@ -40,6 +40,9 @@ panel_sim_1 <- uiOutput(
   outputId = "sim_1"
 )
 
+panel_sim_2 <- uiOutput(
+  outputId = "sim_2"
+)
 
 
 
@@ -50,7 +53,7 @@ ui <- fluidPage(
     useShinyjs(),
 
     # Application titl
-    titlePanel("Old Faithful Geyser Data"),
+    titlePanel("How are you Kludging?"),
 
     tabsetPanel(
       tabPanel(
@@ -59,12 +62,16 @@ ui <- fluidPage(
           sidebarPanel = sidebarPanel(
             width = 4,
             splitLayout(
-              panel_sim_1
+              panel_sim_1,
+              panel_sim_2
+            ),
+            actionButton(
+              inputId = "btn_simulate",
+              label = "Simulate!"
             )
-
           ),
           mainPanel = mainPanel(
-
+            reactableOutput(outputId = "saida")
           )
         )
       ) ,
@@ -83,21 +90,83 @@ server <- function(input, output) {
     output$sim_1 <- renderUI({
       saida <- create_inputs("1")
 
-      browser()
+      saida
+
+    })
+
+
+    output$sim_2 <- renderUI({
+      saida <- create_inputs("2")
 
       saida
 
     })
 
 
-    output$distPlot <- renderPlot({
-        # generate bins based on input$bins from ui.R
-        x    <- faithful[, 2]
-        bins <- seq(min(x), max(x), length.out = input$bins + 1)
+    resultado <- eventReactive(
+      eventExpr = input$btn_simulate,
+      valueExpr = {
+        simulate_action_button(input)
+      }
+    )
 
-        # draw the histogram with the specified number of bins
-        hist(x, breaks = bins, col = 'darkgray', border = 'white')
+
+    output$saida <- renderReactable({
+
+      resultado <- resultado()
+
+      execucao_1 <- resultado$result_1 %>%
+        filter(
+          str_detect(key, "developer")
+        ) %>%
+        group_by(
+          value
+        ) %>%
+        summarise(
+          merges_payoff = n()/5
+        ) %>%
+        pivot_wider(
+          names_from = value,
+          values_from = merges_payoff
+        ) %>%
+        mutate(
+          case = "Case 1",
+          .before = everything()
+        )
+
+      execucao_2 <- resultado$result_2 %>%
+        filter(
+          str_detect(key, "developer")
+        ) %>%
+        group_by(
+          value
+        ) %>%
+        summarise(
+          merges_payoff = n()/5
+        ) %>%
+        pivot_wider(
+          names_from = value,
+          values_from = merges_payoff
+        ) %>%
+        mutate(
+          case = "Case 2",
+          .before = everything()
+        )
+
+
+
+      reactable(
+        bind_rows(execucao_1, execucao_2)
+      )
+
+
     })
+
+
+
+
+
+
 }
 
 # Run the application

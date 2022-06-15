@@ -941,29 +941,28 @@ create_inputs <- function(suffix){
 
   wellPanel(
 
+    h3("Case {suffix}" %>%  str_glue()),
+    tags$hr(),
     selectInput(
       inputId = "dev_1_{suffix}" %>%  str_glue(),
       label = "Strategy dev1",
       choices = c(actions$Kludgy, actions$Diligent)
     ),
     selectInput(
-      inputId = "dev_1_{suffix}" %>%  str_glue(),
+      inputId = "dev_2_{suffix}" %>%  str_glue(),
       label = "Strategy dev2",
       choices = c(actions$Kludgy, actions$Diligent)
     ),
     selectInput(
-      inputId = "dev_1_{suffix}" %>%  str_glue(),
+      inputId = "dev_3_{suffix}" %>%  str_glue(),
       label = "Strategy dev3",
       choices = c(actions$Kludgy, actions$Diligent)
     ),
 
     sliderInput("process_fraction_review_{suffix}" %>%  str_glue(),label="% of pull requests reviewed", min = 0, max = 100, post  = " %", value = 50, step = 5),
+    sliderInput("entropy_factor_{suffix}"  %>%  str_glue() ,label="% degradation for each kludge", min = 0, max = 2, post  = " %", value = 1, step = 0.25),
+    sliderInput("entropy_factor____{suffix}"  %>%  str_glue() ,label="% improvement for each non kludge", min = 0, max = 2, post  = " %", value = 1, step = 0.25),
     sliderInput("process_fraction_metareview_{suffix}" %>%  str_glue(),label="% of reviews metareviewed", min = 0, max = 100, post  = " %", value = 50, step = 5) %>%  hidden(),
-    radioButtons(
-      inputId = "characteristics_kludges_harmful_{suffix}"  %>%  str_glue(),
-      label = "Kludges harmful",
-      choices = likert_harm$description
-    ),
 
 
     #### Game ####
@@ -976,12 +975,12 @@ create_inputs <- function(suffix){
       step = 1
     ) %>%  hidden(),
 
-    numericInput(
-      inputId = "entropy_factor_{suffix}" %>% str_glue(),
-      label = "$$H$$" %>% withMathJax(),
-      value = "1.02",
-      step = 0.01
-    ) %>%  hidden() ,
+    # numericInput(
+    #   inputId = "entropy_factor_{suffix}" %>% str_glue(),
+    #   label = "$$H$$" %>% withMathJax(),
+    #   value = "1.02",
+    #   step = 0.01
+    # ) %>%  hidden() ,
 
     numericInput(
       inputId = "prob_review_{suffix}" %>% str_glue(),
@@ -1005,7 +1004,188 @@ create_inputs <- function(suffix){
       inputId = "n_executions_{suffix}" %>% str_glue(),
       label = "$$executions$$"  %>% withMathJax(),
       value = "5"
-    )  %>%  hidden()
+    ) %>%  hidden(),
+
+
+    #### Development Stage #####
+
+
+
+    numericInput(
+      inputId = "prob_diligent_{suffix}" %>% str_glue(),
+      label = "$$P(K)|D$$" %>%  withMathJax(),
+      value = "0.1",
+      step = 0.01
+    ) %>%  hidden(),
+
+
+    numericInput(
+      inputId = "prob_kludgy_{suffix}" %>% str_glue(),
+      label = "$$P(K)|K$$" %>%  withMathJax(),
+      value = "0.9",
+      step = 0.01
+    ) %>%  hidden(),
+
+    numericInput(
+      inputId = "mean_time_diligent_{suffix}" %>% str_glue(),
+      label = withMathJax("$$\\mu|(D, !R)$$"),
+      value = "10",
+      step = "1"
+    ) %>%  hidden(),
+
+    numericInput(
+      inputId = "mean_time_kludgy_{suffix}" %>% str_glue(),
+      label = withMathJax("$$\\mu|(K, !R)$$"),
+      value = "6",
+      step = "1"
+    ) %>%  hidden(),
+
+    numericInput(
+      inputId = "sd_time_develop_{suffix}" %>% str_glue(),
+      label = withMathJax("$$\\sigma|(!R)$$"),
+      value = "2",
+      step = "1"
+    ) %>%  hidden(),
+
+    numericInput(
+      inputId = "mean_time_rework_{suffix}" %>% str_glue(),
+      label = withMathJax("$$\\mu|R$$"),
+      value = "3",
+      step = "1"
+    ) %>%  hidden(),
+
+    numericInput(
+      inputId = "sd_time_rework_{suffix}" %>% str_glue(),
+      label = withMathJax("$$\\sigma|R$$"),
+      value = "5",
+      step = "1"
+    ) %>%  hidden(),
+
+
+    ####  Review Stage #####
+
+
+    numericInput(
+      inputId = "mean_time_review_{suffix}" %>% str_glue(),
+      label = "$$\\mu$$",
+      value = "1",
+      step = "1"
+    ) %>%  hidden(),
+
+    numericInput(
+      inputId = "sd_time_review_{suffix}" %>% str_glue(),
+      label = "$$\\sigma$$",
+      value = "0.2",
+      step = "1"
+    ) %>%  hidden(),
+
+
+    numericInput(
+      inputId = "prob_kludgy_review_when_kludge_careful_{suffix}" %>% str_glue(),
+      label = "$$P(K)|(K, C)$$" %>% withMathJax() ,
+      value = "0.85"
+    ) %>%  hidden(),
+
+    numericInput(
+      inputId = "prob_kludgy_review_when_not_kludge_careful_{suffix}" %>% str_glue(),
+      label = "$$P(K)|(!K, C)$$" %>% withMathJax(),
+      value = "0.1"
+    ) %>%  hidden(),
+
+    numericInput(
+      inputId = "prob_kludgy_review_when_kludge_negligent_{suffix}" %>% str_glue(),
+      label = "$$P(K)|(K, N)$$" %>% withMathJax(),
+      value = "0.25"
+    ) %>%  hidden(),
+
+    numericInput(
+      inputId = "prob_kludgy_review_when_not_kludge_negligent_{suffix}" %>% str_glue(),
+      label = "$$P(K)|(!K, N)$$" %>% withMathJax(),
+      value = "0.1"
+    ) %>%  hidden(),
+
+
+    #### metarevivew #####
+
+    numericInput(
+      inputId = "prob_negative_when_correct_kludgy_accurate_{suffix}" %>% str_glue(),
+      label = "$$P(-)|(K, +, A)$$" %>%  withMathJax(),
+      value = "0.1",
+      step = 0.01
+    ) %>%  hidden(),
+
+    numericInput(
+      inputId = "prob_negative_when_correct_not_kludgy_accurate_{suffix}" %>% str_glue(),
+      label = "$$P(-)|(!K, +, A)$$"  %>%  withMathJax(),
+      value = "0.1",
+      step = 0.01
+    ) %>%  hidden(),
+
+    numericInput(
+      inputId = "prob_negative_when_incorrect_kludgy_accurate_{suffix}" %>% str_glue(),
+      label = "$$P(-)|(K, -, A)$$"  %>%  withMathJax(),
+      value = "0.85",
+      step = 0.01
+    ) %>%  hidden(),
+
+    numericInput(
+      inputId = "prob_negative_when_incorrect_not_kludgy_accurate_{suffix}" %>% str_glue(),
+      label = "$$P(-)|(!K, -, A)$$"  %>%  withMathJax(),
+      value = "0.85",
+      step = 0.01
+    ) %>%  hidden(),
+
+
+    numericInput(
+      inputId = "prob_negative_when_correct_kludgy_inaccurate_{suffix}" %>% str_glue(),
+      label = "$$P(-)|(K, +, I)$$"  %>%  withMathJax(),
+      value = "0.6",
+      step = 0.01
+    ) %>%  hidden(),
+
+    numericInput(
+      inputId = "prob_negative_when_correct_not_kludgy_inaccurate_{suffix}" %>% str_glue(),
+      label = "$$P(-)|(!K, +, I)$$"  %>%  withMathJax(),
+      value = "0.1",
+      step = 0.01
+    ) %>%  hidden(),
+
+    numericInput(
+      inputId = "prob_negative_when_incorrect_kludgy_inaccurate_{suffix}" %>% str_glue(),
+      label = "$$P(-)|(K, -, I)$$"  %>%  withMathJax(),
+      value = "0.1",
+      step = 0.01
+    ) %>%  hidden(),
+
+    numericInput(
+      inputId = "prob_negative_when_incorrect_not_kludgy_inaccurate_{suffix}" %>% str_glue(),
+      label = "$$P(-)|(!K, -, I)$$"  %>%  withMathJax(),
+      value = "0.9",
+      step = 0.01
+    ) %>%  hidden(),
+
+    numericInput(
+      inputId = "mean_time_accurate_{suffix}" %>% str_glue(),
+      label = "$$\\mu|A$$"  %>%  withMathJax() ,
+      value = "1",
+      step = "1"
+    ) %>%  hidden(),
+
+    numericInput(
+      inputId = "mean_time_inaccurate_{suffix}" %>% str_glue(),
+      label = "$$\\mu|I$$"  %>%  withMathJax(),
+      value = "1",
+      step = "1"
+    ) %>%  hidden(),
+
+
+    numericInput(
+      inputId = "sd_time_meta_review_{suffix}" %>% str_glue(),
+      label = "$$\\sigma$$"  %>%  withMathJax(),
+      value = "0.2",
+      step = "0.1"
+    ) %>%  hidden()
+
 
 
 
