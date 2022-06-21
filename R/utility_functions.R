@@ -960,8 +960,7 @@ create_inputs <- function(suffix){
     ),
 
     sliderInput("process_fraction_review_{suffix}" %>%  str_glue(),label="% of pull requests reviewed", min = 0, max = 100, post  = " %", value = 50, step = 5),
-    sliderInput("entropy_factor_{suffix}"  %>%  str_glue() ,label="% degradation for each kludge", min = 0, max = 2, post  = " %", value = 1, step = 0.25),
-    sliderInput("entropy_factor____{suffix}"  %>%  str_glue() ,label="% improvement for each non kludge", min = 0, max = 2, post  = " %", value = 1, step = 0.25),
+    sliderInput("entropy_factor_{suffix}"  %>%  str_glue() ,label="% degradation for each kludge", min = 0, max = 5, post  = " %", value = 1, step = 0.25),
     sliderInput("process_fraction_metareview_{suffix}" %>%  str_glue(),label="% of reviews metareviewed", min = 0, max = 100, post  = " %", value = 50, step = 5) %>%  hidden(),
 
 
@@ -1197,7 +1196,106 @@ create_inputs <- function(suffix){
 
 
 
+simulate_action_button <- function(input, progress){
 
+  n_executions <- input$n_executions
+
+  info <- list()
+
+  values <- map(
+    .x = names(input),
+    .f = ~{
+      info[[.x]] <- input[[.x]]
+    }
+  )
+
+
+  devs_1 <- tribble(
+
+    ~strategy_dev, ~strategy_rev, ~strategy_meta,
+    input$dev_1_1, actions$Careful, actions$Accurate,
+    input$dev_2_1, actions$Careful, actions$Accurate,
+    input$dev_3_1, actions$Careful, actions$Accurate,
+
+  )
+
+
+  devs_2 <- tribble(
+
+    ~strategy_dev, ~strategy_rev, ~strategy_meta,
+    input$dev_1_2, actions$Careful, actions$Accurate,
+    input$dev_2_2, actions$Careful, actions$Accurate,
+    input$dev_3_2, actions$Careful, actions$Accurate,
+
+  )
+
+
+  names(values) <- names(input)
+
+  values_1 <- values[str_detect(string = names(values), pattern = "_1$")]
+  names_1 <- names(values_1) %>% str_remove(pattern = "_1$")
+  names(values_1) <- names_1
+  values_1$devs = devs_1
+  values_1$entropy_factor = 1 + values_1$entropy_factor/100
+
+  values_2 <- values[str_detect(string = names(values), pattern = "_2$")]
+  names_2 <- names(values_2) %>% str_remove(pattern = "_2$")
+  names(values_2) <- names_2
+  values_2$devs = devs_2
+  values_2$entropy_factor = 1 + values_2$entropy_factor/100
+
+
+
+
+  simulate_and_label <- function(round, values, progress, n_executions, memo = TRUE){
+
+    simulated <- simulate_game_simmer(values, round)
+
+    progress$inc(1/n_executions)
+
+    simulated
+
+  }
+
+  progress$set(message = "Simulating 1/2", value = 0)
+
+
+  result_1 <- purrr::map_df(
+    .x = 1:n_executions,
+    .f = ~simulate_and_label(
+      round = .x,
+      values = values_1,
+      progress = progress,
+      n_executions = n_executions
+    ) %>%
+      mutate(round = .x)
+  )
+
+  progress$set(message = "Simulating 2/2", value = 0)
+
+  result_2 <- purrr::map_df(
+    .x = 1:n_executions,
+    .f = ~simulate_and_label(
+      round = .x,
+      values = values_2,
+      progress = progress,
+      n_executions = n_executions
+    ) %>%
+      mutate(round = .x)
+
+  )
+
+
+  output_result <- list()
+
+  output_result$result_1 <- result_1
+  output_result$result_2 <- result_2
+
+  output_result
+
+
+
+}
 
 
 

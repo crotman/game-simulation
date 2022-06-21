@@ -255,7 +255,8 @@ simulate_game_simmer <- function(
       sd <- params$sd_time_rework
     }
     entropy_factor <- params$entropy_factor ^ simmer::get_global(env, "entropy")
-    rnorm(n = 1, mean = mean * entropy_factor, sd = sd * entropy_factor)
+    saida <- rnorm(n = 1, mean = mean * entropy_factor, sd = sd * entropy_factor)
+    saida
   }
 
   set_kludge <- function(){
@@ -380,7 +381,7 @@ simulate_game_simmer <- function(
 
   metareview_traj <- simmer::trajectory("metareview_traj") %>%
     simmer::set_prioritization(c(1, 2, FALSE)) %>%
-    simmer::select(get_other_devs_on_metareview, policy = "first-available" ) %>%
+    simmer::select(get_other_devs_on_metareview, policy = "random-available" ) %>%
     simmer::timeout(0.0001) %>%
     set_attribute_and_global(keys = "stage", values = get_stage_id(cur_stage = "MetaReview", cur_phase = "Start")) %>%
     set_attribute_and_global(keys = "metareviewer", values = get_developer_id ) %>%
@@ -403,7 +404,7 @@ simulate_game_simmer <- function(
 #### review traj ####
   review_traj <- simmer::trajectory("review_traj") %>%
     simmer::set_prioritization(c(1, 2, FALSE)) %>%
-    simmer::select(get_other_devs_on_review, policy = "first-available" ) %>%
+    simmer::select(get_other_devs_on_review, policy =  "random-available" ) %>%
     set_attribute_and_global(keys = "reviewer", values = get_developer_id ) %>%
     simmer::timeout(0.0001) %>%
     set_attribute_and_global(keys = "stage", values = get_stage_id(cur_stage = "Review", cur_phase = "Start")) %>%
@@ -500,6 +501,7 @@ simulate_game_simmer <- function(
 
   env <- simmer::simmer("simulacao")
 
+
   distr <- function() rexp(n = 1, rate = 1/params$lambda)
 
   env_run <- env %>%
@@ -535,6 +537,7 @@ simulate_game_simmer <- function(
     dplyr::filter(
       !key %in% ("entropy")
     )
+
 
   # browser()
 
@@ -585,7 +588,7 @@ simulate_game_simmer <- function(
 
 
   # if(!debug_mode){
-    output <- data
+    output <- bind_rows(data, entropy)
   # }else{
   #   output <- list(
   #     data = data,
